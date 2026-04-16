@@ -109,3 +109,90 @@ theorem invariant_conjunction {State : Type}
   · intro s s' ⟨hps, hqs⟩ hn                -- sub-goal 2 (step-preservation): destructure pre-state assumption (P s ∧ Q s)
     exact ⟨hp.2 s s' hps hn, hq.2 s s' hqs hn⟩
                                             -- pair the two step-preservations
+
+/- ------------------------------------------------------------------- -/
+/- K-step reachability and k-induction.                                -/
+/-                                                                     -/
+/- Standard inductive invariants prove properties of ALL reachable     -/
+/- states. For convergence results (e.g., "after k rounds, property P  -/
+/- holds"), we need to reason about states reachable in exactly k      -/
+/- steps. The definitions and theorems below support this.             -/
+
+/-- A state `s` is reachable in exactly `k` steps from an initial state.
+    `ReachableInK ts 0 s` means s is an initial state;
+    `ReachableInK ts (k+1) s'` means some state reachable in k steps
+    can step to s'. -/
+inductive ReachableInK {State : Type} (ts : TransitionSystem State) : Nat → State → Prop where
+  | init (s : State) : ts.init s → ReachableInK ts 0 s
+  | step (k : Nat) (s s' : State) : ReachableInK ts k s → ts.next s s' → ReachableInK ts (k+1) s'
+
+/-- ★ THEOREM 4 — k-step reachable states are reachable.
+    Forgets the step count, connecting to the unindexed `Reachable`. -/
+theorem reachableInK_reachable {State : Type} (ts : TransitionSystem State) :
+    ∀ k s, ReachableInK ts k s → Reachable ts s := by
+  intro k s hrk
+  induction hrk with
+  | init s hi => exact Reachable.init s hi
+  | step _ s s' _ hn ih => exact Reachable.step s s' ih hn
+
+/-- Every reachable state is reachable in some number of steps. -/
+theorem reachable_iff_reachableInK {State : Type} (ts : TransitionSystem State)
+    (s : State) : Reachable ts s ↔ ∃ k, ReachableInK ts k s := by
+  constructor
+  · intro hr
+    induction hr with
+    | init s hi => exact ⟨0, .init s hi⟩
+    | step s s' _ hn ih =>
+      obtain ⟨k, hk⟩ := ih
+      exact ⟨k + 1, .step k s s' hk hn⟩
+  · intro ⟨k, hk⟩
+    exact reachableInK_reachable ts k s hk
+
+/-- ★ THEOREM 5 — Step-indexed invariant.
+    If a property `P` (indexed by step count) holds for all k-step
+    reachable states, then the unindexed property `∀ k, P k` holds
+    on every reachable state.
+    Practical use: prove "after k rounds, cells at distance ≤ k have
+    correct dist values" by induction on k, then conclude the property
+    for all reachable states. -/
+theorem step_indexed_invariant {State : Type}
+    (ts : TransitionSystem State) (P : Nat → State → Prop)
+    (h : ∀ k s, ReachableInK ts k s → P k s) :
+    ∀ s, Reachable ts s → ∃ k, P k s := by
+  intro s hr
+  rw [reachable_iff_reachableInK] at hr
+  obtain ⟨k, hk⟩ := hr
+  exact ⟨k, h k s hk⟩
+
+/-- ★ THEOREM 6 — K-induction principle.
+    A step-indexed property `P` is a step-indexed invariant if:
+      (1) it holds on all initial states (at step 0), AND
+      (2) if `P k` holds on a k-step reachable state and the state
+          steps to s', then `P (k+1)` holds on s'.
+    This is the step-indexed analogue of `inductive_invariant_holds`. -/
+theorem k_induction {State : Type}
+    (ts : TransitionSystem State) (P : Nat → State → Prop)
+    (hinit : ∀ s, ts.init s → P 0 s)
+    (hstep : ∀ k s s', ReachableInK ts k s → P k s → ts.next s s' → P (k + 1) s') :
+    ∀ k s, ReachableInK ts k s → P k s := by
+  intro k s hrk
+  induction hrk with
+  | init s hi => exact hinit s hi
+  | step k s s' hrk hn ih => exact hstep k s s' hrk ih hn
+
+/-- If a 1-step inductive invariant Q holds AND a step-indexed property
+    P holds for all k-step reachable states satisfying Q, then P holds
+    for all k-step reachable states. Combines ordinary invariants with
+    step-indexed reasoning. -/
+theorem k_induction_with_invariant {State : Type}
+    (ts : TransitionSystem State) (Q : State → Prop) (P : Nat → State → Prop)
+    (hQ : InductiveInvariant ts Q)
+    (hinit : ∀ s, ts.init s → P 0 s)
+    (hstep : ∀ k s s', ReachableInK ts k s → Q s → P k s → ts.next s s' → P (k + 1) s') :
+    ∀ k s, ReachableInK ts k s → P k s := by
+  intro k s hrk
+  induction hrk with
+  | init s hi => exact hinit s hi
+  | step k s s' hrk hn ih =>
+    have hqs : Q s := inductive_invariant_holds ts Q hQ s (reachableInK_reachable ts k s hrk)
+    exact hstep k s s' hrk hqs ih hn

@@ -1,0 +1,102 @@
+-- Cellular flows routing + signaling protocol for 3 cells in a line
+-- Based on "Safe and Stabilizing Distributed Multi-Path Cellular Flows"
+-- (Johnson & Mitra, TCS 2015)
+--
+-- Cell 0 = target, Cell 1 = middle, Cell 2 = end
+-- dist values: 0..3 where 3 = infinity sentinel
+MODULE main
+VAR
+  dist0 : 0..3;
+  dist1 : 0..3;
+  dist2 : 0..3;
+  next1 : {cell0, none_val};
+  next2 : {cell1, none_val};
+  signal0 : {cell1, none_val};
+  signal1 : {none_val, cell0, cell2};
+  signal2 : {cell1, none_val};
+  entity0 : boolean;
+  entity1 : boolean;
+  entity2 : boolean;
+
+ASSIGN
+  -- Initial conditions
+  init(dist0) := 0;
+  init(dist1) := 3;
+  init(dist2) := 3;
+  init(next1) := none_val;
+  init(next2) := none_val;
+  init(signal0) := none_val;
+  init(signal1) := none_val;
+  init(signal2) := none_val;
+  init(entity0) := FALSE;
+  init(entity1) := TRUE;
+  init(entity2) := TRUE;
+
+  -- Route phase: dist0 stays 0
+  next(dist0) := 0;
+
+  -- dist1 = min(dist0, dist2) + 1 capped at 3
+  next(dist1) := case
+    dist0 <= dist2 & dist0 + 1 <= 3 : dist0 + 1;
+    dist0 <= dist2 & dist0 + 1 > 3 : 3;
+    dist2 < dist0 & dist2 + 1 <= 3 : dist2 + 1;
+    TRUE : 3;
+  esac;
+
+  -- dist2 = dist1 + 1 capped at 3
+  next(dist2) := case
+    dist1 + 1 <= 3 : dist1 + 1;
+    TRUE : 3;
+  esac;
+
+  -- Route: next1 = cell0 if dist0 <= dist2 (tie-break lower index)
+  next(next1) := case
+    dist0 <= dist2 : cell0;
+    TRUE : cell0;
+  esac;
+
+  -- Route: next2 = cell1 always (only neighbor)
+  next(next2) := cell1;
+
+  -- Signal phase
+  -- Cell 0 signals cell 1 if cell 1 has entities and routes toward cell 0
+  next(signal0) := case
+    entity1 = TRUE & next1 = cell0 : cell1;
+    TRUE : none_val;
+  esac;
+
+  -- Cell 1 signals cell 2 if cell 2 has entities and routes toward cell 1
+  next(signal1) := case
+    entity2 = TRUE & next2 = cell1 : cell2;
+    TRUE : none_val;
+  esac;
+
+  -- Cell 2 is the end of the line, no predecessors
+  next(signal2) := none_val;
+
+  -- Move phase
+  -- entity0: target consumes entities, stays FALSE
+  next(entity0) := FALSE;
+
+  -- entity1: loses entity if signal0 = cell1; gains entity if signal1 = cell2
+  next(entity1) := case
+    signal0 = cell1 & signal1 = cell2 : TRUE;
+    signal0 = cell1 : FALSE;
+    signal1 = cell2 : TRUE;
+    TRUE : entity1;
+  esac;
+
+  -- entity2: loses entity if signal1 = cell2
+  next(entity2) := case
+    signal1 = cell2 : FALSE;
+    TRUE : entity2;
+  esac;
+
+-- No signal cycle between cells 0 and 1
+INVARSPEC !(signal0 = cell1 & signal1 = cell0);
+
+-- Target always has distance 0
+INVARSPEC dist0 = 0;
+
+-- Distance bounded
+INVARSPEC dist1 <= 3;

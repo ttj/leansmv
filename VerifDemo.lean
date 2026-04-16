@@ -7,7 +7,14 @@ import VerifDemo.NuXMV.Gcd
 import VerifDemo.NuXMV.GcdProofs
 import VerifDemo.NuXMV.Mutex
 import VerifDemo.NuXMV.MutexProofs
+import VerifDemo.NuXMV.Cellular3
+import VerifDemo.NuXMV.Cellular3Proofs
 import VerifDemo.Parametric.NMutex
+import VerifDemo.CellularFlows.Defs
+import VerifDemo.CellularFlows.Route
+import VerifDemo.CellularFlows.RouteProofs
+import VerifDemo.CellularFlows.CellFlows
+import VerifDemo.CellularFlows.CellFlowsProofs
 import VerifDemo.ProgramVerif.Imp
 import VerifDemo.ProgramVerif.Examples
 import VerifDemo.ProgramVerif.Sort
