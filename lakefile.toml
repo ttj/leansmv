@@ -1,0 +1,9 @@
+name = "VerifDemo"
+version = "0.1.0"
+defaultTargets = ["VerifDemo"]
+
+[leanOptions]
+autoImplicit = false
+
+[[lean_lib]]
+name = "VerifDemo"

@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Lean 4 for Verification — EECS 6315</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/white.css" id="theme">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/monokai.css">
+
+  <style>
+    .reveal { font-size: 28px; }
+    .reveal h1 { font-size: 1.8em; }
+    .reveal h2 { font-size: 1.3em; color: #2c3e50; }
+    .reveal h3 { font-size: 1.05em; color: #34495e; }
+    .reveal pre { box-shadow: none; font-size: 0.62em; width: 100%; }
+    .reveal pre code { padding: 18px; border-radius: 6px; max-height: 580px; line-height: 1.35; }
+    .reveal .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; text-align: left; }
+    .reveal .two-col pre { width: 100%; }
+    .reveal ul, .reveal ol { display: block; text-align: left; margin-left: 1em; }
+    .reveal li { margin: 0.35em 0; }
+    .reveal .subtle { color: #7f8c8d; font-style: italic; }
+    .reveal .tight li { margin: 0.15em 0; }
+    .reveal .small { font-size: 0.72em; }
+    .reveal .tiny { font-size: 0.58em; }
+    .reveal .label { display: inline-block; background: #ecf0f1; color: #2c3e50; padding: 2px 8px; border-radius: 4px; font-size: 0.7em; margin-right: 6px; }
+    .reveal blockquote { border-left: 4px solid #3498db; background: #ecf0f1; padding: 10px 16px; font-style: italic; }
+    .reveal .success { color: #27ae60; font-weight: bold; }
+    .reveal .warn { color: #e67e22; font-weight: bold; }
+    .reveal section { text-align: left; }
+    .reveal section.title-slide { text-align: center; }
+    .reveal .logo-row { display: flex; gap: 32px; justify-content: center; align-items: center; font-size: 0.7em; color: #7f8c8d; }
+  </style>
+</head>
+<body>
+<div class="reveal"><div class="slides">
+
+<!-- ==================== TITLE ==================== -->
+<section class="title-slide">
+  <h1>Lean 4 for Verification</h1>
+  <h3 class="subtle">A 30-minute tour</h3>
+  <p class="small">Discrete math · Transition systems · NuXMV translation · Program verification</p>
+  <br>
+  <p class="small subtle">EECS 6315 — Spring 2026</p>
+</section>
+
+<!-- ==================== BACKGROUND ==================== -->
+
+<section>
+  <h2>Roadmap</h2>
+  <ol>
+    <li><span class="label">BG</span> What is a theorem prover?</li>
+    <li><span class="label">BG</span> The Curry–Howard correspondence</li>
+    <li><span class="label">BG</span> Lean 4 in one slide</li>
+    <li><span class="label">BG</span> Why this matters now (AI + math)</li>
+    <li><span class="label">DEMO</span> Discrete math warmup</li>
+    <li><span class="label">DEMO</span> Transition systems &amp; inductive invariants</li>
+    <li><span class="label">DEMO</span> NuXMV → Lean translation (counter, gcd)</li>
+    <li><span class="label">DEMO</span> Program verification with Hoare logic</li>
+    <li><span class="label">DEMO</span> Sorting — testing vs verification</li>
+  </ol>
+</section>
+
+<section>
+  <h2>What is a theorem prover?</h2>
+  <ul>
+    <li>A language in which you write <em>both</em> the theorem and the proof as <strong>code</strong>.</li>
+    <li>A <strong>kernel</strong> that mechanically checks the proof, term-by-term, against a small set of trusted rules.</li>
+    <li>If the kernel accepts it, the theorem is proved — with the same certainty as a verified program type-checks.</li>
+  </ul>
+  <br>
+  <p><strong>Key distinction from model checking:</strong></p>
+  <ul class="tight">
+    <li>Model checking: exhaustive search over a <em>finite</em> state space ⇒ yes / counterexample.</li>
+    <li>Theorem proving: <em>symbolic</em> reasoning, works over infinite state spaces / parametric systems, but requires human guidance.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>A short family tree</h2>
+  <ul class="tight">
+    <li><strong>LCF (1972, Milner)</strong> — the "trust the kernel" idea.</li>
+    <li><strong>HOL / Isabelle/HOL</strong> — classical higher-order logic. Used for L4.verified (seL4 microkernel).</li>
+    <li><strong>Coq / Rocq (1989)</strong> — Calculus of Inductive Constructions. Four Color Theorem, CompCert C compiler.</li>
+    <li><strong>PVS (SRI, 1990s)</strong> — predicate subtypes, TCCs. Used in aerospace / NASA; the course's prior vehicle.</li>
+    <li><strong>Agda, Idris</strong> — dependently-typed programming.</li>
+    <li class="warn"><strong>Lean 4 (Leo de Moura, 2013 → 2021)</strong> — this talk.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Curry–Howard: proofs ≡ programs</h2>
+  <div class="two-col">
+    <div>
+      <p><strong>Logic side</strong></p>
+      <ul class="tight">
+        <li>Proposition <em>P</em></li>
+        <li>Proof of <em>P</em></li>
+        <li><em>P → Q</em></li>
+        <li><em>P ∧ Q</em></li>
+        <li><em>P ∨ Q</em></li>
+        <li><em>∀ x, P x</em></li>
+        <li><em>∃ x, P x</em></li>
+      </ul>
+    </div>
+    <div>
+      <p><strong>Programming side</strong></p>
+      <ul class="tight">
+        <li>Type <em>P</em></li>
+        <li>Term of type <em>P</em></li>
+        <li>Function <em>P → Q</em></li>
+        <li>Pair <em>(P, Q)</em></li>
+        <li>Tagged union</li>
+        <li>Dependent function</li>
+        <li>Dependent pair</li>
+      </ul>
+    </div>
+  </div>
+  <br>
+  <p class="small"><strong>Consequence:</strong> building a proof is the same activity as constructing a program that inhabits a type. The kernel "type-checks" both.</p>
+</section>
+
+<section>
+  <h2>Lean 4 in one slide</h2>
+  <ul class="tight">
+    <li>Dependent type theory — Calculus of Inductive Constructions, tuned for usability.</li>
+    <li><strong>Both</strong> a proof assistant <em>and</em> a practical programming language; Lean itself is largely written in Lean.</li>
+    <li><strong>Tactic language</strong> for interactive proof: <code>intro</code>, <code>apply</code>, <code>cases</code>, <code>induction</code>, <code>simp</code>, <code>omega</code>, <code>decide</code>.</li>
+    <li><strong>Mathlib</strong> — the world's largest formal math library (&gt; 1.5M lines, &gt; 200k theorems).</li>
+    <li>Macro system &amp; elaborator let you <em>extend the language itself</em>.</li>
+    <li>Used in production: AWS (cryptographic code), Carnegie Mellon &amp; Stanford courses, Terence Tao's polymath projects.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Why now? AI + math + formal proof</h2>
+  <ul class="tight">
+    <li><strong>Terence Tao</strong> has been formalizing recent research in Lean (PFR conjecture, 2023) — in weeks instead of years.</li>
+    <li><strong>DeepMind AlphaProof</strong> (2024): IMO silver-medal performance, output in Lean.</li>
+    <li><strong>Harmonic</strong> (Marcus / Aaronson et al.) — "mathematical superintelligence" built on Lean.</li>
+    <li><strong>Axiom Math / Math Inc.</strong> — research labs using neural proof search + Lean as ground truth.</li>
+    <li><strong>Google's open Terry Tao-style projects</strong> mix LLM drafts with Lean verification.</li>
+  </ul>
+  <br>
+  <blockquote class="small">The bet: LLMs hallucinate, but a Lean proof either type-checks or it doesn't. Formal methods become the <em>oracle</em> that grades the model's output.</blockquote>
+</section>
+
+<section>
+  <h2>Why a verification course should care</h2>
+  <ul>
+    <li>Model checking (NuXMV) answers <em>finite</em>, <em>concrete</em> safety questions.</li>
+    <li>Theorem proving (Lean) answers <em>parametric</em>, <em>infinite</em>, <em>symbolic</em> questions — and <em>the same kind</em> of questions, with proofs that compose.</li>
+    <li>The <strong>inductive invariant</strong> you write for NuXMV is <em>exactly</em> the invariant you'd prove in Lean.</li>
+    <li>When the state space blows up, or a property is parameterized over all <em>n</em>, theorem proving is the next step.</li>
+  </ul>
+</section>
+
+<!-- ==================== DEMO PART 1 — DISCRETE MATH ==================== -->
+
+<section>
+  <h1>Part 1 — Discrete Math</h1>
+  <p class="subtle">Sets as predicates, basic proofs, tactic mode.</p>
+</section>
+
+<section>
+  <h2>Sets as predicates</h2>
+  <pre><code class="language-lean" data-trim>
+-- A set of α-elements is a function α → Prop
+def MySet (α : Type) := α → Prop
+
+def mem    (x : α) (A : MySet α)  : Prop := A x
+def subset (A B : MySet α)        : Prop := ∀ x, mem x A → mem x B
+def union  (A B : MySet α)        : MySet α := fun x => mem x A ∨ mem x B
+def inter  (A B : MySet α)        : MySet α := fun x => mem x A ∧ mem x B
+def compl  (A : MySet α)          : MySet α := fun x => ¬ mem x A
+  </code></pre>
+  <p class="small">No axioms, no set theory baggage. Everything is a type or a function between types.</p>
+</section>
+
+<section>
+  <h2>First proof: subset transitivity</h2>
+  <pre><code class="language-lean" data-trim>
+theorem subset_trans (A B C : MySet α)
+    (hab : subset A B) (hbc : subset B C) : subset A C := by
+  intro x hxa
+  apply hbc
+  apply hab
+  exact hxa
+  </code></pre>
+  <ul class="tight small">
+    <li><code>intro x hxa</code> — suppose <em>x</em> and that <em>x ∈ A</em>.</li>
+    <li><code>apply hbc</code> — reduce goal <em>x ∈ C</em> to <em>x ∈ B</em>.</li>
+    <li><code>apply hab</code> — reduce goal <em>x ∈ B</em> to <em>x ∈ A</em>.</li>
+    <li><code>exact hxa</code> — done.</li>
+  </ul>
+  <p class="small subtle">Four tactics, each mechanical. This is the core rhythm of Lean.</p>
+</section>
+
+<section>
+  <h2>De Morgan for sets</h2>
+  <pre><code class="language-lean" data-trim>
+theorem demorgan_union (A B : MySet α) :
+    seteq (compl (union A B)) (inter (compl A) (compl B)) := by
+  intro x
+  constructor
+  · intro h
+    constructor
+    · intro ha; apply h; left; exact ha
+    · intro hb; apply h; right; exact hb
+  · intro ⟨hna, hnb⟩ hab
+    cases hab with
+    | inl ha => exact hna ha
+    | inr hb => exact hnb hb
+  </code></pre>
+</section>
+
+<!-- ==================== DEMO PART 2 — TRANSITION SYSTEMS ==================== -->
+
+<section>
+  <h1>Part 2 — Transition Systems</h1>
+  <p class="subtle">The same structures we model-check in NuXMV, formalized.</p>
+</section>
+
+<section>
+  <h2>A general transition system</h2>
+  <pre><code class="language-lean" data-trim>
+structure TransitionSystem (State : Type) where
+  init : State → Prop
+  next : State → State → Prop
+
+-- Reachable states defined inductively
+inductive Reachable {State : Type} (ts : TransitionSystem State) : State → Prop
+  | init (s : State) : ts.init s → Reachable ts s
+  | step (s s' : State) : Reachable ts s → ts.next s s' → Reachable ts s'
+  </code></pre>
+  <p class="small">Matches what we did in PVS — and what every model checking textbook calls "Post*" / "reach set".</p>
+</section>
+
+<section>
+  <h2>Inductive invariants — the classical recipe</h2>
+  <pre><code class="language-lean" data-trim>
+def InductiveInvariant (ts : TransitionSystem State) (P : State → Prop) : Prop :=
+  (∀ s,    ts.init s   → P s) ∧
+  (∀ s s', P s → ts.next s s' → P s')
+
+-- Soundness: an inductive invariant holds on every reachable state.
+theorem inductive_invariant_holds (ts : TransitionSystem State) (P : State → Prop)
+    (h : InductiveInvariant ts P) : ∀ s, Reachable ts s → P s := by
+  intro s hr
+  induction hr with
+  | init s hi         => exact h.1 s hi
+  | step s s' _ hn ih => exact h.2 s s' ih hn
+  </code></pre>
+  <p class="small"><strong>This single theorem is the backbone of everything that follows.</strong> Once we prove an invariant is inductive, reachability gives us the universal property for free.</p>
+</section>
+
+<section>
+  <h2>Two useful corollaries</h2>
+  <pre><code class="language-lean" data-trim>
+-- Invariant strengthening: if P is inductive and P → Q, then Q is invariant.
+theorem invariant_strengthening (ts : _) (P Q : State → Prop)
+    (hind : InductiveInvariant ts P) (himp : ∀ s, P s → Q s) :
+    ∀ s, Reachable ts s → Q s := ...
+
+-- Conjunction: P ∧ Q inductive ⇐ P inductive ∧ Q inductive.
+theorem invariant_conjunction (ts : _) (P Q : _) ... := ...
+  </code></pre>
+  <p class="small">Why strengthening matters: the property we <em>want</em> is often not inductive. We prove a stronger property (the "true invariant") and then weaken it.</p>
+</section>
+
+<!-- ==================== DEMO PART 3 — NUXMV TRANSLATION ==================== -->
+
+<section>
+  <h1>Part 3 — NuXMV → Lean</h1>
+  <p class="subtle">Parse .smv files with a grammar, generate Lean, prove invariants.</p>
+</section>
+
+<section>
+  <h2>The counter model</h2>
+  <div class="two-col">
+    <div>
+      <p class="small"><strong>counter.smv</strong></p>
+      <pre><code data-trim class="small">
+MODULE main
+  VAR
+    mode : {off,on};
+    press : boolean;
+    x : 0..25;
+  DEFINE count_max := 10;
+  ASSIGN
+    init(mode) := off;
+    init(x)    := 0;
+    next(mode) := case
+      mode=off & !press : off;
+      mode=off &  press : on;
+      mode=on & !press & x<count_max : on;
+      mode=on & (press | x>=count_max) : off;
+      TRUE : mode;
+    esac;
+    next(x) := case
+      mode=on & !press & x<count_max : x+1;
+      mode=on & (press | x>=count_max) : 0;
+      TRUE : x;
+    esac;
+  INVARSPEC x <= count_max;
+  INVARSPEC (mode = off) -> (x = 0);
+      </code></pre>
+    </div>
+    <div>
+      <p class="small"><strong>Pipeline</strong></p>
+      <ol class="small">
+        <li>Lark LALR(1) grammar parses the .smv file.</li>
+        <li>Transformer builds an <code>SmvModel</code> IR.</li>
+        <li><code>smv2lean.py</code> emits a Lean file.</li>
+      </ol>
+      <p class="small">The same generator is what we reuse from the <code>smvis</code> project.</p>
+      <pre><code data-trim class="tiny">
+$ python scripts/smv2lean.py \
+    models/counter.smv \
+    VerifDemo/NuXMV/Counter.lean
+Generated VerifDemo/NuXMV/Counter.lean
+      </code></pre>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Generated Lean (snippet)</h2>
+  <pre><code class="language-lean" data-trim>
+inductive ModeVal where | off | on deriving DecidableEq, Repr
+open ModeVal
+
+structure CounterState where
+  mode : ModeVal
+  press : Bool
+  x : Nat
+  deriving DecidableEq, Repr
+
+def CounterTS : TransitionSystem CounterState where
+  init s := s.mode = .off ∧ s.x = 0
+  next s s' :=
+    ∃ press' : Bool,
+    s'.press = press' ∧
+    (if ((s.mode = .off) ∧ (s.press = false)) then s'.mode = .off
+    else if ((s.mode = .off) ∧ (s.press = true))  then s'.mode = .on
+    else ...) ∧
+    (if (((s.mode = .on) ∧ (s.press = false)) ∧ (s.x < 10)) then s'.x = s.x + 1
+    else if ((s.mode = .on) ∧ ((s.press = true) ∨ (s.x ≥ 10))) then s'.x = 0
+    else s'.x = s.x)
+  </code></pre>
+  <p class="small"><code>press</code> has no <code>init</code>/<code>next</code> ⇒ detected as a nondeterministic input, existentially quantified at each step.</p>
+</section>
+
+<section>
+  <h2>Proving the invariants — strengthen first</h2>
+  <p class="small">The two INVARSPECs we want:  <code>x ≤ 10</code>  and  <code>mode=off → x=0</code>. Neither is inductive on its own. The <em>conjunction</em> is.</p>
+  <pre><code class="language-lean" data-trim>
+def counterInv (s : CounterState) : Prop :=
+  s.x ≤ 10 ∧ (s.mode = .off → s.x = 0)
+
+theorem counterInv_inductive : InductiveInvariant CounterTS counterInv :=
+  ⟨counterInv_init, counterInv_step⟩   -- each a short case analysis
+
+-- Individual INVARSPECs follow by strengthening.
+theorem CounterTS_inv1_proved :
+    Invariant CounterTS (fun s => s.x ≤ 10) :=
+  invariant_strengthening CounterTS counterInv _ counterInv_inductive
+    (fun _ h => h.1)
+
+theorem CounterTS_inv2_proved :
+    Invariant CounterTS (fun s => s.mode = .off → s.x = 0) :=
+  invariant_strengthening CounterTS counterInv _ counterInv_inductive
+    (fun _ h => h.2)
+  </code></pre>
+</section>
+
+<section>
+  <h2>Euclid's GCD — a deeper example</h2>
+  <div class="two-col">
+    <div>
+      <p class="small"><strong>Algorithm</strong></p>
+      <pre><code data-trim class="small">
+l1: while (a ≠ b) {
+l2:   if (a > b)
+l3:     a := a - b
+      else
+l4:     b := b - a
+l5: }
+      </code></pre>
+      <p class="small"><strong>Encoding:</strong> a program counter <code>pc ∈ {l1,…,l5}</code>. Transitions update <code>pc</code>, <code>a</code>, or <code>b</code> based on the current line.</p>
+    </div>
+    <div>
+      <p class="small"><strong>What we prove</strong></p>
+      <ol class="small tight">
+        <li><code>a ≥ 0 ∧ b ≥ 0</code> — trivially (Nat).</li>
+        <li><code>pc = l5 → a = b</code> — termination correctness, by induction over transitions.</li>
+        <li><code>gcd(a, b)</code> is preserved by every step — the classical correctness result.</li>
+      </ol>
+      <p class="small">Each fact uses the same <code>inductive_invariant_holds</code> theorem, specialized.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>GCD preservation — the core lemma</h2>
+  <pre><code class="language-lean" data-trim>
+-- The identity underlying Euclid's algorithm, available in core Lean 4:
+theorem gcd_sub_eq (a b : Nat) (h : b ≤ a) :
+    Nat.gcd (a - b) b = Nat.gcd a b :=
+  Nat.gcd_sub_self_left h
+
+-- One-step GCD preservation.
+theorem GcdTS_gcd_preserved :
+    ∀ s s', GcdTS.next s s' → Nat.gcd s.a s.b = Nat.gcd s'.a s'.b := by
+  intro s s' ⟨ha_next, hb_next, _⟩
+  by_cases h3 : s.pc = .l3 ∧ s.a > s.b
+  · -- a := a - b, b unchanged → gcd invariant by gcd_sub_eq
+    ...
+  · by_cases h4 : s.pc = .l4 ∧ s.b > s.a
+    · -- symmetric, uses Nat.gcd_comm
+      ...
+    · -- neither changes; done.
+      ...
+  </code></pre>
+  <p class="small">Proof structure: case-split on which line of code we are at, reuse the stdlib GCD identity.</p>
+</section>
+
+<section>
+  <h2>Mutex — 2 processes (NuXMV model)</h2>
+  <pre><code class="language-lean" data-trim>
+-- Strengthened inductive invariant for Peterson-style mutex:
+def mutexInv (s : MutexState) : Prop :=
+  (p1InLock s ↔ s.flag1 = true) ∧
+  (p2InLock s ↔ s.flag2 = true) ∧
+  ¬(s.process1 = .critical ∧ s.process2 = .critical)
+
+theorem MutexTS_mutual_exclusion :
+    Invariant MutexTS (fun s => ¬(s.process1 = .critical
+                                  ∧ s.process2 = .critical)) :=
+  invariant_strengthening MutexTS mutexInv _
+    mutexInv_inductive (fun _ h => h.2.2)
+  </code></pre>
+  <p class="small"><strong>Key insight:</strong> mutual exclusion alone is <em>not</em> inductive. We strengthen with flag-coupling invariants. Then: for both to enter `critical` in one step, both must be `waiting` ⇒ both flags true ⇒ entry conditions force <code>turn = 1 ∧ turn = 2</code> ⇒ contradiction.</p>
+</section>
+
+<section>
+  <h2>Parametric mutex — <em>all</em> N processes</h2>
+  <p class="small warn">This is what NuXMV cannot do: prove mutual exclusion for <em>all</em> N ∈ ℕ simultaneously.</p>
+  <pre><code class="language-lean" data-trim>
+structure MState (n : Nat) where
+  procs  : Fin n → ProcState       -- n process states
+  locked : Bool                    -- the shared lock
+
+def mutexTS (n : Nat) : TransitionSystem (MState n) where
+  init s := s.locked = false ∧ ∀ i, s.procs i = .ncs
+  next s s' := ∃ i : Fin n,
+    (∀ j, j ≠ i → s'.procs j = s.procs j) ∧              -- frame
+    (⟨acquire i⟩ ∨ ⟨release i⟩ ∨ ⟨stutter⟩)
+
+def atMostOneCS (s : MState n) : Prop :=
+  ∀ i j, s.procs i = .cs → s.procs j = .cs → i = j
+
+theorem mutual_exclusion (n : Nat) :
+    Invariant (mutexTS n) (fun s => atMostOneCS s) := ...
+  </code></pre>
+  <p class="small">One proof, <em>universally quantified over n</em>. Model checking N=2, N=3, … ad infinitum is replaced by a single inductive argument.</p>
+</section>
+
+<section>
+  <h2>Why this composition matters</h2>
+  <ul>
+    <li>The <strong>same</strong> inductive-invariant machinery we built <em>once</em> works for every model the parser emits.</li>
+    <li>Different <code>.smv</code> files → different <code>State</code> types, same proof strategy.</li>
+    <li>Tested on: <code>counter.smv</code>, <code>gcd.smv</code>, <code>traffic_light.smv</code>, <code>mutex.smv</code>.</li>
+    <li>Compare to NuXMV: model-check passes/fails on specific bounded instances; Lean gives you the <em>parametric</em> result, plus a <em>reusable</em> proof you can extend.</li>
+    <li><span class="success">Parametric verification</span> — proving a property for <em>all</em> N at once — is the defining capability of theorem proving that model checking genuinely cannot match.</li>
+  </ul>
+</section>
+
+<!-- ==================== DEMO PART 4 — PROGRAM VERIFICATION ==================== -->
+
+<section>
+  <h1>Part 4 — Program Verification</h1>
+  <p class="subtle">IMP language, big-step semantics, Hoare logic — loop invariants in Lean.</p>
+</section>
+
+<section>
+  <h2>A tiny Python-flavored language</h2>
+  <pre><code class="language-lean" data-trim>
+inductive AExp | num : Int → AExp | var : String → AExp
+             | add | sub | mul : AExp → AExp → AExp
+
+inductive BExp | tt | ff | eq | le | lt | not | and (…)
+
+inductive Cmd
+  | skip
+  | assign : String → AExp → Cmd
+  | seq    : Cmd → Cmd → Cmd
+  | ifte   : BExp → Cmd → Cmd → Cmd
+  | while  : BExp → Cmd → Cmd
+
+-- Big-step operational semantics: BigStep c s s' means running c in s reaches s'
+inductive BigStep : Cmd → PState → PState → Prop where
+  | skip   : BigStep .skip s s
+  | assign : BigStep (.assign x e) s (s[x ↦ aeval e s])
+  | seq    : BigStep c1 s s' → BigStep c2 s' s'' → BigStep (.seq c1 c2) s s''
+  | while_false : beval b s = false → BigStep (.while b c) s s
+  | while_true  : beval b s = true → BigStep c s s' → BigStep (.while b c) s' s''
+                → BigStep (.while b c) s s''
+  </code></pre>
+</section>
+
+<section>
+  <h2>Hoare logic — the six standard rules</h2>
+  <pre><code class="language-lean" data-trim>
+def HoareTriple (P : Assertion) (c : Cmd) (Q : Assertion) : Prop :=
+  ∀ s s', P s → BigStep c s s' → Q s'
+
+notation:50 "⦃" P "⦄ " c " ⦃" Q "⦄" => HoareTriple P c Q
+
+theorem hoare_skip    : ⦃P⦄ skip ⦃P⦄
+theorem hoare_assign  : ⦃fun s => Q (s[x ↦ aeval e s])⦄ (x ::= e) ⦃Q⦄
+theorem hoare_seq     : ⦃P⦄ c1 ⦃Q⦄ → ⦃Q⦄ c2 ⦃R⦄ → ⦃P⦄ (c1 ;; c2) ⦃R⦄
+theorem hoare_if      : ... → ⦃P⦄ (if b then c1 else c2) ⦃Q⦄
+theorem hoare_while   : ⦃I ∧ b⦄ c ⦃I⦄ → ⦃I⦄ (while b do c) ⦃I ∧ ¬b⦄
+theorem hoare_consequence : strengthen precond / weaken postcond
+  </code></pre>
+  <p class="small">All six proved from the big-step semantics — no axioms.</p>
+</section>
+
+<section>
+  <h2>Verifying a Python program</h2>
+  <div class="two-col">
+    <div>
+      <p class="small"><strong>Python</strong></p>
+      <pre><code data-trim class="small">
+# swap
+t = x
+x = y
+y = t
+      </code></pre>
+      <pre><code data-trim class="small">
+# count to n
+i = 0
+while i &lt; n:
+    i = i + 1
+# postcondition: i == n
+      </code></pre>
+    </div>
+    <div>
+      <p class="small"><strong>Lean</strong></p>
+      <pre><code class="language-lean" data-trim class="small">
+def swap : Cmd :=
+  "t" ::= AExp.var "x" ;;
+  "x" ::= AExp.var "y" ;;
+  "y" ::= AExp.var "t"
+
+theorem swap_correct (a b : Int) :
+  ⦃fun s => s "x" = a ∧ s "y" = b⦄
+    swap
+  ⦃fun s => s "x" = b ∧ s "y" = a⦄
+      </code></pre>
+      <p class="small">Loop invariant: <code>0 ≤ i ≤ n ∧ n = n₀</code>. Proof uses <code>hoare_while</code> + <code>omega</code>.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h1>Testing vs Verification</h1>
+  <p class="subtle">A sorting algorithm: the cleanest illustration.</p>
+</section>
+
+<section>
+  <h2>Insertion sort — three views, one algorithm</h2>
+  <div class="two-col">
+    <div>
+      <p class="small"><strong>Python (mutable list)</strong></p>
+      <pre><code data-trim class="small">
+def sort(a):
+    for i in range(1, len(a)):
+        key = a[i]
+        j = i - 1
+        while j &gt;= 0 and a[j] &gt; key:
+            a[j+1] = a[j]
+            j = j - 1
+        a[j+1] = key
+      </code></pre>
+      <p class="small"><strong>Lean (imperative — same syntax!)</strong></p>
+      <pre><code class="language-lean" data-trim class="small">
+def sortArr (input : Array Int) := Id.run do
+  let mut a := input
+  for i in [1 : a.size] do
+    let key := a[i]!
+    let mut j : Nat := i
+    while j &gt; 0 ∧ a[j-1]! &gt; key do
+      a := a.set! j a[j-1]!
+      j := j - 1
+    a := a.set! j key
+  return a
+      </code></pre>
+    </div>
+    <div>
+      <p class="small"><strong>Lean (recursive — easier to prove)</strong></p>
+      <pre><code class="language-lean" data-trim class="small">
+def ins (x : Int) : List Int → List Int
+  | []      => [x]
+  | y :: ys => if x ≤ y then x :: y :: ys
+               else y :: ins x ys
+
+def sort : List Int → List Int
+  | []      => []
+  | x :: xs => ins x (sort xs)
+      </code></pre>
+      <p class="small">Lean has full imperative syntax — <code>let mut</code>, <code>for</code>, <code>while</code>, in-place updates. The recursive form is just easier for the kernel to reason about. Both compute the same answer.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Testing — one input at a time</h2>
+  <pre><code class="language-lean" data-trim>
+#eval sort [3, 1, 4, 1, 5, 9, 2, 6]   -- [1, 1, 2, 3, 4, 5, 6, 9]
+#eval sort [5, 4, 3, 2, 1]            -- [1, 2, 3, 4, 5]
+#eval sort ([] : List Int)            -- []
+#eval sort [-3, 0, -1, 5, -10]        -- [-10, -3, -1, 0, 5]
+
+-- Machine-checked tests — each is a theorem about ONE input.
+example : sort [3, 1, 4, 1, 5, 9, 2, 6] = [1, 1, 2, 3, 4, 5, 6, 9] := by decide
+example : sort [5, 4, 3, 2, 1]          = [1, 2, 3, 4, 5]          := by decide
+example : sort ([] : List Int)          = []                       := by decide
+example : sort [-3, 0, -1, 5, -10]      = [-10, -3, -1, 0, 5]      := by decide
+  </code></pre>
+  <p class="small">Ten tests cover ten inputs. <code>List Int</code> has <em>infinitely many</em> values. Tests <strong>cannot</strong> cover them all — no matter how many you write.</p>
+</section>
+
+<section>
+  <h2>Verification — one theorem, all inputs</h2>
+  <pre><code class="language-lean" data-trim>
+-- Specification: what does it mean to be sorted?
+inductive Sorted : List Int → Prop where
+  | nil       : Sorted []
+  | singleton : ∀ x, Sorted [x]
+  | cons      : ∀ x y ys, x ≤ y → Sorted (y :: ys) → Sorted (x :: y :: ys)
+
+-- ★ Correctness: for EVERY list, sort produces a sorted permutation.
+theorem sort_correct : ∀ xs : List Int,
+    Sorted (sort xs) ∧ List.Perm (sort xs) xs :=
+  fun xs => ⟨sort_sorted xs, sort_perm xs⟩
+  </code></pre>
+  <ul class="tight small">
+    <li><strong>Sortedness</strong> — output is in non-decreasing order.</li>
+    <li><strong>Permutation</strong> — output has exactly the same elements (no element added, lost, or duplicated). Uses <code>List.Perm</code> from core Lean.</li>
+    <li>Together: "sort produces a <em>sorted rearrangement</em>" — and the <code>∀ xs</code> means <strong>for every possible input</strong>.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Why this matters</h2>
+  <ul>
+    <li>You will <em>never</em> write enough tests to cover all <code>List Int</code> — the input space is infinite.</li>
+    <li>One Lean theorem, type-checked once, replaces an unbounded test suite.</li>
+    <li>If you change <code>sort</code> tomorrow and it breaks correctness, the proof <em>fails to compile</em>. The compiler is your regression test.</li>
+    <li>This is the same pattern from earlier: an <strong>inductive invariant</strong> for the recursion (here, <code>ins_sorted</code>) underpins the global theorem.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>The same idea, three times</h2>
+  <ul>
+    <li><strong>Transition systems:</strong> inductive invariant <code>P</code>. Prove: <em>init → P</em>, <em>P ∧ step → P'</em>.</li>
+    <li><strong>NuXMV models:</strong> same, plus <code>pc</code> to track control flow.</li>
+    <li><strong>Hoare logic:</strong> loop invariant <code>I</code>. Prove: <em>pre → I</em>, <em>I ∧ guard → I</em> (body), <em>I ∧ ¬guard → post</em>.</li>
+  </ul>
+  <br>
+  <blockquote>The "inductive invariant" is one idea, wearing different clothes.</blockquote>
+</section>
+
+<!-- ==================== TESTING vs VERIFICATION ==================== -->
+
+<section>
+  <h1>Part 5 — Testing vs Verification</h1>
+  <p class="subtle">Sorting a list — the cleanest example of the difference.</p>
+</section>
+
+<section>
+  <h2>Sorting — three views, one algorithm</h2>
+  <div class="two-col">
+    <div>
+      <p class="small"><strong>Python (imperative)</strong></p>
+      <pre><code data-trim class="small">
+def sort(a):
+  for i in range(1, len(a)):
+    key = a[i]
+    j = i - 1
+    while j >= 0 and a[j] > key:
+      a[j+1] = a[j]
+      j = j - 1
+    a[j+1] = key
+      </code></pre>
+      <p class="small"><strong>Our IMP (extended w/ arrays)</strong></p>
+      <pre><code data-trim class="small">
+i := 1;
+while i < len(a):
+  key := a[i];
+  j := i - 1;
+  while j ≥ 0 && a[j] > key do
+    a[j+1] := a[j];
+    j := j - 1
+  end;
+  a[j+1] := key;
+  i := i + 1
+      </code></pre>
+    </div>
+    <div>
+      <p class="small"><strong>Lean (recursion = loops)</strong></p>
+      <pre><code class="language-lean" data-trim class="small">
+def ins (x : Int) : List Int → List Int
+  | []      => [x]
+  | y :: ys =>
+      if x ≤ y
+      then x :: y :: ys
+      else y :: ins x ys
+
+def sort : List Int → List Int
+  | []      => []
+  | x :: xs => ins x (sort xs)
+      </code></pre>
+      <p class="small">Same algorithm, three syntaxes. The proof technology — loop / recursion invariants — is identical.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Testing — what specific cases tell us</h2>
+  <pre><code class="language-lean" data-trim>
+#eval sort [3, 1, 4, 1, 5, 9, 2, 6]   -- [1, 1, 2, 3, 4, 5, 6, 9]
+#eval sort [5, 4, 3, 2, 1]            -- [1, 2, 3, 4, 5]
+#eval sort ([] : List Int)            -- []
+#eval sort [-3, 0, -1, 5, -10]        -- [-10, -3, -1, 0, 5]
+
+-- Each test is a theorem about ONE specific input:
+example : sort [3, 1, 4, 1, 5, 9, 2, 6] = [1, 1, 2, 3, 4, 5, 6, 9] := by decide
+example : sort [5, 4, 3, 2, 1]          = [1, 2, 3, 4, 5]          := by decide
+example : sort ([] : List Int)          = []                       := by decide
+  </code></pre>
+  <p class="small">Ten tests cover ten inputs. <code>List Int</code> has <em>infinitely many values</em>. Tests can never cover them all. They tell us what the function does for the inputs we wrote — and nothing about anything else.</p>
+</section>
+
+<section>
+  <h2>The correctness criterion — what does "sorted" even mean?</h2>
+  <pre><code class="language-lean" data-trim>
+-- A list is sorted iff every adjacent pair is in non-decreasing order.
+inductive Sorted : List Int → Prop where
+  | nil       : Sorted []
+  | singleton : ∀ x, Sorted [x]
+  | cons      : ∀ x y ys, x ≤ y → Sorted (y :: ys) → Sorted (x :: y :: ys)
+  </code></pre>
+  <p class="small">Two parts to "correct":</p>
+  <ol class="tight">
+    <li><strong>Sortedness</strong> — the output is in non-decreasing order.</li>
+    <li><strong>Permutation</strong> — the output contains exactly the same elements as the input (no elements added, lost, or duplicated).</li>
+  </ol>
+  <p class="small subtle">Without (2), a "sort" function that always returned <code>[]</code> would satisfy (1).</p>
+</section>
+
+<section>
+  <h2>Verification — one theorem, all inputs</h2>
+  <pre><code class="language-lean" data-trim>
+-- Property (1): the output is sorted, FOR EVERY list xs.
+theorem sort_sorted : ∀ xs : List Int, Sorted (sort xs)
+
+-- Property (2): the output is a permutation of the input, FOR EVERY xs.
+theorem sort_perm   : ∀ xs : List Int, List.Perm (sort xs) xs
+
+-- Combined: SORT IS CORRECT FOR ALL LISTS OF INTEGERS.
+theorem sort_correct : ∀ xs : List Int,
+    Sorted (sort xs) ∧ List.Perm (sort xs) xs :=
+  fun xs => ⟨sort_sorted xs, sort_perm xs⟩
+  </code></pre>
+  <p class="small"><strong>Read it:</strong> "for all <code>xs</code> in <code>List Int</code> — every list, of every length, every combination of integers — <code>sort xs</code> is sorted, and a permutation of <code>xs</code>."</p>
+  <p class="small"><span class="success">One theorem covers what no finite test suite ever could.</span></p>
+</section>
+
+<section>
+  <h2>The contrast in one slide</h2>
+  <table style="width:100%; font-size:0.85em; border-collapse: collapse;">
+    <tr style="background:#ecf0f1;">
+      <th style="padding:10px; text-align:left;">Testing</th>
+      <th style="padding:10px; text-align:left;">Verification</th>
+    </tr>
+    <tr>
+      <td style="padding:10px; vertical-align:top;">Pick inputs, run, check output.</td>
+      <td style="padding:10px; vertical-align:top;">State a property, prove it for all inputs.</td>
+    </tr>
+    <tr style="background:#f8f9fa;">
+      <td style="padding:10px; vertical-align:top;">Each test = one input.</td>
+      <td style="padding:10px; vertical-align:top;">One theorem = infinitely many inputs.</td>
+    </tr>
+    <tr>
+      <td style="padding:10px; vertical-align:top;">Misses bugs in inputs you didn't try (Heartbleed, integer overflows, edge cases).</td>
+      <td style="padding:10px; vertical-align:top;">Closed under quantification; if proved, no input can violate.</td>
+    </tr>
+    <tr style="background:#f8f9fa;">
+      <td style="padding:10px; vertical-align:top;">Cheap, fast, works on any system.</td>
+      <td style="padding:10px; vertical-align:top;">Requires effort up front; output is a machine-checked guarantee.</td>
+    </tr>
+    <tr>
+      <td style="padding:10px; vertical-align:top;">"It works on my examples."</td>
+      <td style="padding:10px; vertical-align:top;">"It works, period."</td>
+    </tr>
+  </table>
+</section>
+
+<!-- ==================== CLOSING ==================== -->
+
+<section>
+  <h2>Takeaways</h2>
+  <ul>
+    <li>Lean 4 makes <em>proofs</em> feel like programming — same editor, same mental model.</li>
+    <li>Everything in this course that can be stated parametrically, can be stated and proved in Lean.</li>
+    <li>When a model becomes too large for NuXMV (or parametric, or infinite), theorem proving is the next rung on the ladder.</li>
+    <li>The <strong>AI+proof</strong> frontier is real, fast-moving, and Lean is its lingua franca.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Further reading</h2>
+  <ul class="small">
+    <li><strong>"Theorem Proving in Lean 4"</strong> — the official tutorial book.</li>
+    <li><strong>"Mathematics in Lean"</strong> — the Mathlib onboarding book.</li>
+    <li><strong>"Software Foundations" (Pierce et al.)</strong> — program verification in Coq; the classic reference.</li>
+    <li><strong>"Functional Algorithms, Verified!" (Nipkow)</strong> — Isabelle, but the techniques transfer.</li>
+    <li><strong>AlphaProof blog post</strong> (DeepMind, 2024) — what modern AI + Lean looks like.</li>
+    <li><strong>Terence Tao's blog posts</strong> on formalizing PFR — researcher's perspective.</li>
+  </ul>
+  <br>
+  <div class="logo-row">
+    <span>lean-lang.org</span>
+    <span>leanprover-community.github.io</span>
+    <span>Zulip: leanprover.zulipchat.com</span>
+  </div>
+</section>
+
+<section class="title-slide">
+  <h1>Thank you</h1>
+  <p class="subtle">Questions?</p>
+  <br>
+  <p class="small">All code: <code>vsc_lean/</code> &nbsp;·&nbsp; build with <code>lake build</code></p>
+</section>
+
+</div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script>
+  Reveal.initialize({
+    hash: true,
+    slideNumber: 'c/t',
+    transition: 'slide',
+    center: false,
+    width: 1280,
+    height: 800,
+    margin: 0.05,
+    plugins: [ RevealHighlight, RevealNotes ]
+  });
+</script>
+</body>
+</html>
