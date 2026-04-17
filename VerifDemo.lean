@@ -9,6 +9,8 @@ import VerifDemo.NuXMV.Mutex
 import VerifDemo.NuXMV.MutexProofs
 import VerifDemo.NuXMV.Cellular3
 import VerifDemo.NuXMV.Cellular3Proofs
+import VerifDemo.NuXMV.CellularMC2x2
+import VerifDemo.NuXMV.CellularMC2x2Proofs
 import VerifDemo.Parametric.NMutex
 import VerifDemo.CellularFlows.Defs
 import VerifDemo.CellularFlows.Route

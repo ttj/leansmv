@@ -819,11 +819,104 @@ private theorem manhattan_eq_zero_imp {n : Nat} (i t : CellId2D n)
 
 /-- On the 2D grid, every non-target cell has a neighbor closer to the target.
     Key topological fact: if i ≠ t, rows or columns differ; move one step
-    closer in that coordinate. Axiomatized because the full proof requires
-    detailed Fin arithmetic with Option.toList membership. -/
-axiom exists_closer_neighbor {n : Nat} (hn : n > 0) (i t : CellId2D n)
+    closer in that coordinate. -/
+theorem exists_closer_neighbor {n : Nat} (_hn : n > 0) (i t : CellId2D n)
     (hne : i ≠ t) :
-    ∃ j : CellId2D n, j ∈ neighbors2D i ∧ manhattan j t + 1 = manhattan i t
+    ∃ j : CellId2D n, j ∈ neighbors2D i ∧ manhattan j t + 1 = manhattan i t := by
+  -- Since i ≠ t, at least one coordinate differs
+  have hcoord : i.1.val ≠ t.1.val ∨ i.2.val ≠ t.2.val := by
+    by_cases hr : i.1.val = t.1.val
+    · right
+      intro hc
+      exact hne (Prod.ext (Fin.ext hr) (Fin.ext hc))
+    · left; exact hr
+  -- Bounds: both coordinates < n
+  have hi1 : i.1.val < n := i.1.isLt
+  have ht1 : t.1.val < n := t.1.isLt
+  have hi2 : i.2.val < n := i.2.isLt
+  have ht2 : t.2.val < n := t.2.isLt
+  -- Split: row differs, or col differs
+  by_cases hrow : i.1.val = t.1.val
+  · -- Rows are equal; columns must differ
+    have hcol_ne : i.2.val ≠ t.2.val := by
+      rcases hcoord with h | h
+      · exact absurd hrow h
+      · exact h
+    by_cases hlt : i.2.val < t.2.val
+    · -- Use rightNeighbor2D: col + 1
+      have hbound : i.2.val + 1 < n := by omega
+      refine ⟨(i.1, ⟨i.2.val + 1, hbound⟩), ?_, ?_⟩
+      · -- membership in neighbors2D
+        unfold neighbors2D
+        simp only [List.mem_append]
+        right
+        have hr_eq : rightNeighbor2D i = some (i.1, ⟨i.2.val + 1, hbound⟩) := by
+          unfold rightNeighbor2D
+          simp [hbound]
+        rw [hr_eq]
+        simp [Option.toList]
+      · -- manhattan equation
+        unfold manhattan
+        show (if i.1.val ≤ t.1.val then t.1.val - i.1.val else i.1.val - t.1.val)
+           + (if (i.2.val + 1) ≤ t.2.val then t.2.val - (i.2.val + 1) else (i.2.val + 1) - t.2.val) + 1
+           = (if i.1.val ≤ t.1.val then t.1.val - i.1.val else i.1.val - t.1.val)
+           + (if i.2.val ≤ t.2.val then t.2.val - i.2.val else i.2.val - t.2.val)
+        (repeat' split) <;> omega
+    · -- i.2.val > t.2.val: use leftNeighbor2D
+      have hgt : i.2.val > t.2.val := by omega
+      have hpos : i.2.val > 0 := by omega
+      refine ⟨(i.1, ⟨i.2.val - 1, by omega⟩), ?_, ?_⟩
+      · unfold neighbors2D
+        simp only [List.mem_append]
+        left; right
+        have hl_eq : leftNeighbor2D i = some (i.1, ⟨i.2.val - 1, by omega⟩) := by
+          unfold leftNeighbor2D
+          simp [hpos]
+        rw [hl_eq]
+        simp [Option.toList]
+      · unfold manhattan
+        show (if i.1.val ≤ t.1.val then t.1.val - i.1.val else i.1.val - t.1.val)
+           + (if (i.2.val - 1) ≤ t.2.val then t.2.val - (i.2.val - 1) else (i.2.val - 1) - t.2.val) + 1
+           = (if i.1.val ≤ t.1.val then t.1.val - i.1.val else i.1.val - t.1.val)
+           + (if i.2.val ≤ t.2.val then t.2.val - i.2.val else i.2.val - t.2.val)
+        (repeat' split) <;> omega
+  · -- Rows differ
+    by_cases hlt : i.1.val < t.1.val
+    · -- Use downNeighbor: row + 1
+      have hbound : i.1.val + 1 < n := by omega
+      refine ⟨(⟨i.1.val + 1, hbound⟩, i.2), ?_, ?_⟩
+      · unfold neighbors2D
+        simp only [List.mem_append]
+        left; left; right
+        have hd_eq : downNeighbor i = some (⟨i.1.val + 1, hbound⟩, i.2) := by
+          unfold downNeighbor
+          simp [hbound]
+        rw [hd_eq]
+        simp [Option.toList]
+      · unfold manhattan
+        show (if (i.1.val + 1) ≤ t.1.val then t.1.val - (i.1.val + 1) else (i.1.val + 1) - t.1.val)
+           + (if i.2.val ≤ t.2.val then t.2.val - i.2.val else i.2.val - t.2.val) + 1
+           = (if i.1.val ≤ t.1.val then t.1.val - i.1.val else i.1.val - t.1.val)
+           + (if i.2.val ≤ t.2.val then t.2.val - i.2.val else i.2.val - t.2.val)
+        (repeat' split) <;> omega
+    · -- i.1.val > t.1.val: use upNeighbor
+      have hgt : i.1.val > t.1.val := by omega
+      have hpos : i.1.val > 0 := by omega
+      refine ⟨(⟨i.1.val - 1, by omega⟩, i.2), ?_, ?_⟩
+      · unfold neighbors2D
+        simp only [List.mem_append]
+        left; left; left
+        have hu_eq : upNeighbor i = some (⟨i.1.val - 1, by omega⟩, i.2) := by
+          unfold upNeighbor
+          simp [hpos]
+        rw [hu_eq]
+        simp [Option.toList]
+      · unfold manhattan
+        show (if (i.1.val - 1) ≤ t.1.val then t.1.val - (i.1.val - 1) else (i.1.val - 1) - t.1.val)
+           + (if i.2.val ≤ t.2.val then t.2.val - i.2.val else i.2.val - t.2.val) + 1
+           = (if i.1.val ≤ t.1.val then t.1.val - i.1.val else i.1.val - t.1.val)
+           + (if i.2.val ≤ t.2.val then t.2.val - i.2.val else i.2.val - t.2.val)
+        (repeat' split) <;> omega
 
 /-- mcDistLowerBound lifted to k-step reachable states. -/
 private theorem mcDistLowerBound_at_k (n nc : Nat) (targets : Fin nc → CellId2D n) :

@@ -1,0 +1,161 @@
+-- Multi-color cellular flows on a 2x2 grid (flattened to 4 cells)
+-- Based on "Safe and Stabilizing Distributed Multi-Path Cellular Flows"
+-- (Johnson & Mitra, TCS 2015)
+--
+-- Layout (2x2 grid, flattened):
+--   Cell 0 = (0,0)  -- source of color 0
+--   Cell 1 = (0,1)  -- target of color 1; potential intersection
+--   Cell 2 = (1,0)  -- source of color 1; potential intersection
+--   Cell 3 = (1,1)  -- target of color 0
+--
+-- 4-connected neighbors: 0-1, 0-2, 1-3, 2-3
+--
+-- Color 0 flows from cell 0 to cell 3 (target dist=0 at cell 3).
+-- Color 1 flows from cell 2 to cell 1 (target dist=0 at cell 1).
+-- Cell 1 is the conflict cell requiring Lock arbitration:
+--   color 0 may want to enter cell 1 (going 0->1->3)
+--   color 1 exits via cell 1 (its target)
+--
+-- The key property here is LOCK MUTUAL EXCLUSION at cell 1.
+
+MODULE main
+VAR
+  -- Distances for color 0 (target is cell 3), 0..3 with 3 = infinity
+  dist0_0 : 0..3;
+  dist0_1 : 0..3;
+  dist0_2 : 0..3;
+  dist0_3 : 0..3;
+
+  -- Distances for color 1 (target is cell 1), 0..3 with 3 = infinity
+  dist1_0 : 0..3;
+  dist1_1 : 0..3;
+  dist1_2 : 0..3;
+  dist1_3 : 0..3;
+
+  -- Locks at the intersection cell (cell 1): which color holds the lock?
+  lock0_1 : boolean;
+  lock1_1 : boolean;
+
+  -- Entities at each cell (simplified to boolean presence)
+  entity_0 : boolean;
+  entity_1 : boolean;
+  entity_2 : boolean;
+  entity_3 : boolean;
+
+ASSIGN
+  -- Initial conditions: targets have dist=0, others dist=3 (infinity).
+  init(dist0_0) := 3;
+  init(dist0_1) := 3;
+  init(dist0_2) := 3;
+  init(dist0_3) := 0;
+
+  init(dist1_0) := 3;
+  init(dist1_1) := 0;
+  init(dist1_2) := 3;
+  init(dist1_3) := 3;
+
+  -- Locks start released.
+  init(lock0_1) := FALSE;
+  init(lock1_1) := FALSE;
+
+  -- Sources have entities; targets and mid-cells empty initially.
+  init(entity_0) := TRUE;
+  init(entity_1) := FALSE;
+  init(entity_2) := TRUE;
+  init(entity_3) := FALSE;
+
+  -- Route: target cells keep their dist=0 for their own color.
+  next(dist0_3) := 0;
+  next(dist1_1) := 0;
+
+  -- Color 0 distances: Bellman-Ford relaxation toward cell 3.
+  -- Cell 2's neighbor on the way to cell 3 is cell 3 (dist0_3=0 -> dist0_2=1).
+  next(dist0_2) := case
+    dist0_3 + 1 <= 3 : dist0_3 + 1;
+    TRUE : 3;
+  esac;
+
+  -- Cell 1's neighbor toward cell 3 is cell 3 (dist0_3=0 -> dist0_1=1).
+  next(dist0_1) := case
+    dist0_3 + 1 <= 3 : dist0_3 + 1;
+    TRUE : 3;
+  esac;
+
+  -- Cell 0 goes via cell 1 or cell 2 to reach cell 3.
+  next(dist0_0) := case
+    dist0_1 <= dist0_2 & dist0_1 + 1 <= 3 : dist0_1 + 1;
+    dist0_2 < dist0_1 & dist0_2 + 1 <= 3 : dist0_2 + 1;
+    TRUE : 3;
+  esac;
+
+  -- Color 1 distances: Bellman-Ford relaxation toward cell 1.
+  -- Cell 0 and cell 3 are neighbors of cell 1 -> dist = 1.
+  next(dist1_0) := case
+    dist1_1 + 1 <= 3 : dist1_1 + 1;
+    TRUE : 3;
+  esac;
+
+  next(dist1_3) := case
+    dist1_1 + 1 <= 3 : dist1_1 + 1;
+    TRUE : 3;
+  esac;
+
+  -- Cell 2 reaches cell 1 via cell 0 or cell 3.
+  next(dist1_2) := case
+    dist1_0 <= dist1_3 & dist1_0 + 1 <= 3 : dist1_0 + 1;
+    dist1_3 < dist1_0 & dist1_3 + 1 <= 3 : dist1_3 + 1;
+    TRUE : 3;
+  esac;
+
+  -- Lock phase at intersection cell 1: mutual exclusion is explicit.
+  -- Priority arbitration: color 0 has strictly higher priority; lock1_1
+  -- may become true only if color 0 is NOT demanding the lock in this
+  -- step. This guarantees the two cannot both become true in one step.
+  next(lock0_1) := case
+    lock1_1 = TRUE : FALSE;
+    entity_0 = TRUE & dist0_1 <= 3 : TRUE;
+    TRUE : FALSE;
+  esac;
+
+  next(lock1_1) := case
+    lock0_1 = TRUE : FALSE;
+    entity_0 = TRUE & dist0_1 <= 3 : FALSE;
+    entity_2 = TRUE & dist1_1 = 0 : TRUE;
+    TRUE : FALSE;
+  esac;
+
+  -- Entity movement: simplified. Cells retain or exchange entities
+  -- subject to lock constraints at cell 1.
+  next(entity_0) := case
+    entity_0 = TRUE & lock0_1 = TRUE : FALSE;
+    TRUE : entity_0;
+  esac;
+
+  next(entity_1) := case
+    entity_0 = TRUE & lock0_1 = TRUE : TRUE;
+    entity_1 = TRUE & lock1_1 = TRUE : FALSE;
+    TRUE : entity_1;
+  esac;
+
+  next(entity_2) := case
+    entity_2 = TRUE & lock1_1 = TRUE : FALSE;
+    TRUE : entity_2;
+  esac;
+
+  next(entity_3) := case
+    entity_1 = TRUE & lock0_1 = TRUE : TRUE;
+    TRUE : entity_3;
+  esac;
+
+-- INVARSPEC 1: LOCK MUTUAL EXCLUSION at the intersection cell.
+-- At most one color holds the lock at cell 1.
+INVARSPEC !(lock0_1 = TRUE & lock1_1 = TRUE);
+
+-- INVARSPEC 2: Target of color 0 is cell 3; its distance is always 0.
+INVARSPEC dist0_3 = 0;
+
+-- INVARSPEC 3: Target of color 1 is cell 1; its distance is always 0.
+INVARSPEC dist1_1 = 0;
+
+-- INVARSPEC 4: All distances stay within bounds.
+INVARSPEC dist0_0 <= 3 & dist0_1 <= 3 & dist0_2 <= 3;
