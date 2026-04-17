@@ -54,19 +54,25 @@ Cellular Flows" (Johnson & Mitra).
 - `Cellular3TS_inv1_proved`, `Cellular3TS_inv2_proved`, `Cellular3TS_inv3_proved`
 - **File**: `Cellular3Proofs.lean`
 
-## Remaining — Priority 1: Entity conservation
+## Next steps
 
-### Total entity count non-increasing
-- **Paper ref**: Invariant 2 — entities are never duplicated
-- **What's needed**: Prove `totalEntities s' ≤ totalEntities s` for each step.
-  Requires summing movedOut/movedIn across all cells via `Fin.foldl` and showing
-  transfers cancel (each movedOut at cell i becomes movedIn at next_i, minus
-  target absorption). The per-cell accounting (`entity_accounting`) is proved;
-  the global sum argument remains.
-- **Difficulty**: Medium — `Fin.foldl` arithmetic
+### Step 1: Ranking function infrastructure in TransitionSystem.lean
+Add general-purpose definitions and proof rules for liveness reasoning:
+- `RankingFunction` definition (variant that decreases under a guard)
+- `ranking_bounded_liveness` theorem (ranking → bounded progress)
+- `Execution` type (infinite sequence of states linked by transitions)
+- `FairExecution` predicate (every enabled action eventually fires)
+- `liveness_from_ranking` theorem (fair execution + ranking → eventual progress)
+These are reusable across all transition systems, not just cellular flows.
+- **File**: `TransitionSystem.lean`
+
+### Step 2: Entity conservation (total count non-increasing)
+- **Paper ref**: Invariant 2
+- **What's needed**: Prove `totalEntities s' ≤ totalEntities s`. Per-cell
+  accounting is done; global sum argument over `Fin.foldl` remains.
 - **File**: `CellFlowsProofs.lean`
 
-## Remaining — Priority 2: Multi-color extension
+### Step 3: Multi-color extension (Phase 2)
 
 ### Model extension
 - Add Lock subroutine (paper Fig. 9) for mutual exclusion on path intersections

@@ -196,3 +196,91 @@ theorem k_induction_with_invariant {State : Type}
   | step k s s' hrk hn ih =>
     have hqs : Q s := inductive_invariant_holds ts Q hQ s (reachableInK_reachable ts k s hrk)
     exact hstep k s s' hrk hqs ih hn
+
+/- ------------------------------------------------------------------- -/
+/- Ranking functions and liveness.                                     -/
+/-                                                                     -/
+/- Safety properties (invariants) say "nothing bad ever happens."      -/
+/- Liveness properties say "something good eventually happens." The    -/
+/- standard tool for liveness is a ranking function (variant): a       -/
+/- natural-number-valued measure that strictly decreases along          -/
+/- transitions, guaranteeing termination / eventual progress.          -/
+
+/-- An infinite execution (trajectory) of a transition system: a
+    function from step indices to states, where each consecutive pair
+    is related by the transition relation. -/
+structure Execution {State : Type} (ts : TransitionSystem State) where
+  states : Nat → State
+  init_ok : ts.init (states 0)
+  step_ok : ∀ k : Nat, ts.next (states k) (states (k + 1))
+
+/-- A ranking function (variant) for liveness. `V : State → Nat` is a
+    ranking function under guard `G` if every transition from a state
+    satisfying `G` with `V > 0` strictly decreases `V`. -/
+def IsRankingFunction {State : Type} (ts : TransitionSystem State)
+    (V : State → Nat) (G : State → Prop) : Prop :=
+  ∀ s s', G s → V s > 0 → ts.next s s' → V s' < V s
+
+/-- ★ THEOREM 7 — Bounded progress from ranking.
+    If `V` is a ranking function under guard `G`, and `G` is an
+    invariant, then every execution reaches `V = 0` within `V(s₀)` steps.
+    This is the discrete analogue of Lyapunov's theorem. -/
+theorem ranking_bounded_progress {State : Type}
+    (ts : TransitionSystem State) (V : State → Nat) (G : State → Prop)
+    (hrank : IsRankingFunction ts V G)
+    (hG : InductiveInvariant ts G)
+    (exec : Execution ts) :
+    ∃ k : Nat, k ≤ V (exec.states 0) ∧ V (exec.states k) = 0 := by
+  have exec_reachable : ∀ k, Reachable ts (exec.states k) := by
+    intro k; induction k with
+    | zero => exact Reachable.init _ exec.init_ok
+    | succ k ih => exact Reachable.step _ _ ih (exec.step_ok k)
+  -- Core: from any index j, if V(states j) ≤ fuel, then V reaches 0
+  -- within fuel more steps. Induction on fuel avoids strong recursion.
+  suffices core : ∀ fuel j : Nat, V (exec.states j) ≤ fuel →
+      ∃ k : Nat, k ≤ fuel ∧ V (exec.states (j + k)) = 0 by
+    obtain ⟨k, hk, hv⟩ := core _ 0 (Nat.le_refl _)
+    exact ⟨k, hk, by simpa using hv⟩
+  intro fuel
+  induction fuel with
+  | zero =>
+    intro j hle
+    have : V (exec.states j) = 0 := by omega
+    exact ⟨0, Nat.le_refl _, by simp_all⟩
+  | succ fuel ih =>
+    intro j hle
+    by_cases hv : V (exec.states j) = 0
+    · exact ⟨0, by omega, by simp_all⟩
+    · have hGj := inductive_invariant_holds ts G hG _ (exec_reachable j)
+      have hdec := hrank _ _ hGj (by omega) (exec.step_ok j)
+      have hle' : V (exec.states (j + 1)) ≤ fuel := by omega
+      obtain ⟨k', hk', hv'⟩ := ih (j + 1) hle'
+      refine ⟨k' + 1, by omega, ?_⟩
+      simp only [Nat.add_assoc, Nat.add_comm 1 k'] at hv' ⊢
+      exact hv'
+
+/-- A predicate holds *eventually* along an execution: there exists
+    some step k at which it holds. -/
+def Eventually {State : Type} {ts : TransitionSystem State}
+    (exec : Execution ts) (P : State → Prop) : Prop :=
+  ∃ k : Nat, P (exec.states k)
+
+/-- ★ THEOREM 8 — Ranking implies eventual progress.
+    If `V` is a ranking function under invariant guard `G`, then
+    every execution eventually reaches a state where `V = 0`. -/
+theorem ranking_implies_eventually {State : Type}
+    (ts : TransitionSystem State) (V : State → Nat) (G : State → Prop)
+    (hrank : IsRankingFunction ts V G)
+    (hG : InductiveInvariant ts G)
+    (exec : Execution ts) :
+    Eventually exec (fun s => V s = 0) := by
+  obtain ⟨k, _, hv⟩ := ranking_bounded_progress ts V G hrank hG exec
+  exact ⟨k, hv⟩
+
+/-- A fairness condition on an execution: a predicate `enabled` that,
+    whenever it holds at some step, is eventually *discharged* (the
+    corresponding `fired` predicate holds at some later step).
+    Models Assumption 4 of the paper (token round-robin fairness). -/
+def FairFor {State : Type} {ts : TransitionSystem State}
+    (exec : Execution ts) (enabled fired : State → Prop) : Prop :=
+  ∀ k : Nat, enabled (exec.states k) → ∃ k' : Nat, k' ≥ k ∧ fired (exec.states k')
