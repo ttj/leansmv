@@ -43,13 +43,13 @@ The Lean side is one Lake library (`VerifDemo`) layered as:
 
 3. **Parametric models** — [VerifDemo/Parametric/NMutex.lean](VerifDemo/Parametric/NMutex.lean) generalizes the 2-process mutex to N processes and proves mutual exclusion for all N. Uses `Fin n → ProcState` with frame conditions — this is the pattern for parametric proofs.
 
-4. **Cellular Flows** — [VerifDemo/CellularFlows/](VerifDemo/CellularFlows/) formalizes the distributed cellular flows protocol from "Safe and Stabilizing Distributed Multi-Path Cellular Flows" (Johnson & Mitra, TCS 2015). ~2,900 lines, 123 theorems, zero `sorry`. See `Defs.lean` header for the full paper-to-Lean correspondence table. Key files:
-   - `Defs.lean` — `DistVal` (finite/infinity), 1D topology, correspondence table
-   - `Grid.lean` — 2D grid topology (`CellId2D`, `neighbors2D`, `manhattan`)
-   - `Route.lean` / `RouteProofs.lean` — Route subroutine TS + Lemma 6 (convergence), Corollary 7
-   - `CellFlows.lean` / `CellFlowsProofs.lean` — Full single-color TS + Theorem 1 (safety), Theorem 2 (liveness), Lemma 5
-   - `DiscreteSafety.lean` — Axiom-free safety theorem (supersedes GapSafe axioms)
-   - `MultiColor.lean` / `MultiColorProofs.lean` — Multi-color TS on 2D grid + Lemma 10-11, Corollaries 8-9, 2D route convergence
+4. **Cellular Flows** — [VerifDemo/CellularFlows/](VerifDemo/CellularFlows/) formalizes the distributed cellular flows protocol from "Safe and Stabilizing Distributed Multi-Path Cellular Flows" (Johnson & Mitra, TCS 2015). ~6,000 lines, 170+ theorems, zero `sorry`. **Read [Defs.lean](VerifDemo/CellularFlows/Defs.lean) header first** — it contains the authoritative paper-to-Lean correspondence table mapping every Invariant / Lemma / Corollary / Theorem to its Lean theorem and file. Organizational groups:
+   - *Core topology & state*: `Defs.lean` (1D line, `DistVal`), `Grid.lean` (2D grid, `CellId2D`, `manhattan`), `Topology.lean` (abstract `CellTopology` typeclass for arbitrary tessellations), `Complete.lean` (K_n instance)
+   - *Single-color protocol*: `Route.lean` / `RouteProofs.lean` (Lemma 6, Cor 7, 1D), `CellFlows.lean` / `CellFlowsProofs.lean` (Theorem 1 safety, Theorem 2 liveness, Lemma 5), `DiscreteSafety.lean` (axiom-free safety, supersedes GapSafe), `Stabilization.lean` (1D self-stabilization from arbitrary state)
+   - *Multi-color protocol*: `MultiColor.lean` / `MultiColorProofs.lean` (Lemma 10-11, Cor 8-9 with explicit gossip update, 2D Lemma 6 / Cor 7, lock acquisition), `Stabilization2D.lean` (2D self-stabilization)
+   - *Paper-notation helpers*: `PaperNotation.lean` (`NEPrev`, `sharedColors`, entity graph `V_E`/`E_E`, routing graph `V_R`/`E_R`), `Parameters.lean` (`l`, `r_s`, `v`, `d`), `Assumptions.lean` (Assumptions 1-2 as documented axioms)
+   - *Continuous models (Theorem 1 in paper's original continuous form)*: `ContinuousModel.lean` (Mathlib-free, abstract `MetricPoint` typeclass, `Nat` distance), `EuclideanModel.lean` (full Mathlib `EuclideanSpace ℝ (Fin 2)` — the ONLY Mathlib-using module)
+   - *Finite instances*: generated from `models/cellular3.smv` (3-cell line) and `models/cellular_mc_2x2.smv` (2x2 grid, 2 colors) with proofs in `VerifDemo/NuXMV/Cellular{3,MC2x2}Proofs.lean`
 
 5. **Program verification** — [VerifDemo/ProgramVerif/](VerifDemo/ProgramVerif/) defines an IMP language with big-step semantics and Hoare logic in `Imp.lean`, with worked examples in `Examples.lean` and verified insertion sort (both recursive and imperative array versions) in `Sort.lean`.
 
@@ -77,6 +77,11 @@ Root module [VerifDemo.lean](VerifDemo.lean) imports everything; `lakefile.toml`
 - State has `Fin n → ComponentState` (one component per index)
 - Transition picks one index `i : Fin n` with frame condition `∀ j ≠ i, unchanged`
 - Case-split on which action fires; use frame to handle other components
+
+**Self-stabilization from arbitrary state** (used in Stabilization.lean, Stabilization2D.lean):
+- Define `ReachableFromInK ts s₀ k s` (inductive, k steps from an arbitrary starting state — not required to satisfy `ts.init`)
+- Step-indexed lower bounds (e.g. `kStepLowerBound`) generalize pre-existing invariant bounds to states reachable from arbitrary garbage
+- Used to express the paper's "within 2Δ rounds of the last fail" stabilization claims
 
 ## SMV → Lean translator
 
