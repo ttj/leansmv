@@ -115,34 +115,80 @@ def ContinuousSingleColor {α : Type} {n nc : Nat}
 /-- Multi-color discrete safety predicate.
 
     This is the multi-color analogue of `DiscreteSafe` from
-    `DiscreteSafety.lean`.  It bundles three protocol-level invariants
+    `DiscreteSafety.lean`.  It bundles the protocol-level invariants
     already proved axiom-free in `MultiColorProofs.lean`:
 
-    1. `lockMutex`            — at most one color holds a lock at any cell
-       (Lemma 10, Fig. 9 lines 8-17);
-    2. `signalRespectsLock`    — signals at intersection cells require the
-       appropriate lock (Lemma 10 discrete form);
-    3. `colorConsistent`       — empty cells have no color (Invariant 3).
+    1. `lockMutex`                — at most one color holds a lock at
+       any cell (Lemma 10, Fig. 9 lines 8-17);
+    2. `signalRespectsLock`        — signals at intersection cells
+       require the appropriate lock (Lemma 10 discrete form);
+    3. `colorConsistent`           — empty cells have no color
+       (Invariant 3);
+    4. `mcSignalValid`             — every non-none signal points to a
+       valid 2D neighbor (Signal subroutine, Fig. 10);
+    5. `lockRequiresIntersection`  — the chain lock ⟹ needsLock ⟹ pint
+       (Fig. 9 precondition).
 
-    By the paper's Theorem 1, these three discrete properties together
-    imply continuous safety under the geometric assumptions (1-2) on the
-    cell partition. -/
+    Note: the 1D `noSignalCycle2` predicate (Lemma 5) is defined on the
+    1D `CellFlowState` and has no direct 2D `MCState` counterpart in
+    this formalization — the corresponding multi-color structural fact
+    is captured by `mcSignalValid` together with the per-color dist
+    lower bound already available through `mcDistLowerBound_invariant`.
+
+    By the paper's Theorem 1, these discrete properties together imply
+    continuous safety under the geometric Assumptions 1-2 on the cell
+    partition. -/
 def MCDiscreteSafe {n nc : Nat} (s : MCState n nc) : Prop :=
-  lockMutex s ∧ signalRespectsLock s ∧ colorConsistent s
+  lockMutex s ∧
+  signalRespectsLock s ∧
+  colorConsistent s ∧
+  mcSignalValid s ∧
+  lockRequiresIntersection s
 
 /-- `MCDiscreteSafe` is invariant for the multi-color transition system.
-    Immediate corollary of the three component invariants already proved
-    in `MultiColorProofs.lean`. -/
+    Immediate corollary of the component invariants already proved in
+    `MultiColorProofs.lean`. -/
 theorem mcDiscreteSafe_invariant (n nc : Nat) (targets : Fin nc → CellId2D n) :
     Invariant (multiColorTS n nc targets) MCDiscreteSafe := by
   intro s hreach
   exact ⟨lockMutex_invariant n nc targets s hreach,
          signalRespectsLock_invariant n nc targets s hreach,
-         colorConsistent_invariant n nc targets s hreach⟩
+         colorConsistent_invariant n nc targets s hreach,
+         mcSignalValid_invariant n nc targets s hreach,
+         lockRequiresIntersection_invariant n nc targets s hreach⟩
 
 /- =================================================================== -/
 /- GEOMETRIC BRIDGE (discrete ⟹ continuous safety)                      -/
 /- =================================================================== -/
+
+/-- A "valid placement" hypothesis: the continuous positions in `s` are
+    consistent with having been produced by a valid sequence of Move
+    phase transfers from an initial all-empty configuration.  This is a
+    continuous-level reachability assumption that we axiomatise rather
+    than define operationally (since we don't formalise continuous
+    dynamics).  The paper's Assumptions 1-2 (in `Assumptions.lean`) give
+    the geometric guarantee that such valid placements always respect
+    the safety spacing `d = r_s + l`.
+
+    Scoping this assumption explicitly (rather than applying the bridge
+    to every `ContinuousMCState`) is crucial for soundness: otherwise a
+    user could construct a state with `MCDiscreteSafe` holding but
+    entities placed at identical positions, and the bridge would
+    declare it "safe" — a contradiction. -/
+axiom ValidContinuousPlacement {α : Type} [MetricPoint α] {n nc : Nat}
+    (targets : Fin nc → CellId2D n)
+    (s : ContinuousMCState α n nc) : Prop
+
+/-- A continuous state is `ContinuousReachable` if (a) its discrete
+    projection is reachable in the multi-color transition system, and
+    (b) its continuous positions satisfy the `ValidContinuousPlacement`
+    hypothesis above.  This is the combined hypothesis required by the
+    geometric safety bridge. -/
+def ContinuousReachable {α : Type} [MetricPoint α] {n nc : Nat}
+    (targets : Fin nc → CellId2D n)
+    (s : ContinuousMCState α n nc) : Prop :=
+  Reachable (multiColorTS n nc targets) s.discrete ∧
+  ValidContinuousPlacement targets s
 
 /-- ★ Geometric bridge axiom (Theorem 1, paper Section 4.2).
 
@@ -160,43 +206,52 @@ theorem mcDiscreteSafe_invariant (n nc : Nat) (targets : Fin nc → CellId2D n) 
     * Together, these imply that in every reachable continuous state,
       entities at the same cell are separated by at least `d`.
 
+    The `hreach : ContinuousReachable targets s` hypothesis restricts
+    the bridge to states that actually arise from the protocol — this
+    prevents deriving safety about adversarially chosen continuous
+    placements whose discrete projection happens to satisfy
+    `MCDiscreteSafe`.
+
     Making this a fully-machine-checked theorem would require Mathlib's
     Euclidean geometry (convex polygons, disk packings, etc.) — which we
     deliberately avoid.  We therefore record it as an axiomatic bridge,
-    clearly marked as geometric.  This is the ONLY new axiom introduced
-    by the continuous model; all other properties are theorems. -/
+    clearly marked as geometric. -/
 axiom continuous_safety_bridge {α : Type} [MetricPoint α] {n nc : Nat}
+    (targets : Fin nc → CellId2D n)
     (params : CellFlowsParameters)
-    (s : ContinuousMCState α n nc) :
+    (s : ContinuousMCState α n nc)
+    (hreach : ContinuousReachable targets s) :
     MCDiscreteSafe s.discrete → ContinuousSafe params s
 
 /-- ★ Continuous Theorem 1 (paper form).
 
-    For any continuous state whose underlying discrete state satisfies
-    `MCDiscreteSafe`, the continuous safety property holds.
-
-    Together with `mcDiscreteSafe_invariant`, this gives the paper-form
-    statement: every reachable continuous state of the multi-color
-    cellular flows system satisfies continuous safety.
+    For any continuous state whose underlying discrete state is
+    reachable in the multi-color transition system and whose continuous
+    positions satisfy `ValidContinuousPlacement` (captured jointly as
+    `ContinuousReachable`), the continuous safety property holds.
 
     Paper reference: Theorem 1, Section 4.2 of TCS 2015. -/
 theorem continuous_theorem_1 {α : Type} [MetricPoint α] {n nc : Nat}
+    (targets : Fin nc → CellId2D n)
     (params : CellFlowsParameters)
     (s : ContinuousMCState α n nc)
+    (hreach : ContinuousReachable targets s)
     (hd : MCDiscreteSafe s.discrete) :
     ContinuousSafe params s :=
-  continuous_safety_bridge params s hd
+  continuous_safety_bridge targets params s hreach hd
 
 /-- Paper-form Theorem 1 combined with the discrete invariant: any
     continuous state whose discrete projection is reachable in the
-    multi-color transition system satisfies continuous safety. -/
+    multi-color transition system and whose positions form a valid
+    placement satisfies continuous safety. -/
 theorem continuous_theorem_1_reachable {α : Type} [MetricPoint α]
     {n nc : Nat} (targets : Fin nc → CellId2D n)
     (params : CellFlowsParameters)
     (s : ContinuousMCState α n nc)
-    (hreach : Reachable (multiColorTS n nc targets) s.discrete) :
+    (hreach : Reachable (multiColorTS n nc targets) s.discrete)
+    (hplace : ValidContinuousPlacement targets s) :
     ContinuousSafe params s :=
-  continuous_safety_bridge params s
+  continuous_safety_bridge targets params s ⟨hreach, hplace⟩
     (mcDiscreteSafe_invariant n nc targets s.discrete hreach)
 
 /- =================================================================== -/

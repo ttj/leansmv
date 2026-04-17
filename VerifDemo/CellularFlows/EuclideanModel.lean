@@ -93,6 +93,28 @@ def ContinuousSingleColorReal {n nc : Nat}
 /- GEOMETRIC BRIDGE (discrete ⟹ real Euclidean safety)                 -/
 /- =================================================================== -/
 
+/-- Real-valued "valid placement" hypothesis: the ℝ² positions in `s`
+    are consistent with having been produced by a valid sequence of
+    Move phase transfers from an initial all-empty configuration.  The
+    real-valued analogue of `ValidContinuousPlacement` from
+    `ContinuousModel.lean`; axiomatised for the same reason (we do not
+    formalise continuous dynamics). -/
+axiom ValidContinuousPlacementReal {n nc : Nat}
+    (targets : Fin nc → CellId2D n)
+    (s : ContinuousMCStateReal n nc) : Prop
+
+/-- A real-valued continuous state is `ContinuousReachableReal` if (a)
+    its discrete projection is reachable in the multi-color transition
+    system, and (b) its ℝ² positions satisfy
+    `ValidContinuousPlacementReal`.  Required by the geometric bridge
+    for soundness (see `ContinuousModel.lean` for the parallel
+    explanation in the Nat metric case). -/
+def ContinuousReachableReal {n nc : Nat}
+    (targets : Fin nc → CellId2D n)
+    (s : ContinuousMCStateReal n nc) : Prop :=
+  Reachable (multiColorTS n nc targets) s.discrete ∧
+  ValidContinuousPlacementReal targets s
+
 /-- ★ Geometric bridge axiom, real-valued version (Theorem 1, paper
     Section 4.2).
 
@@ -112,13 +134,18 @@ def ContinuousSingleColorReal {n nc : Nat}
       entities at the same cell are separated by Euclidean distance at
       least `d`.
 
+    The `hreach : ContinuousReachableReal targets s` hypothesis is
+    required so that the bridge applies only to states produced by the
+    protocol, not to adversarially chosen ℝ² placements.
+
     A fully-machine-checked proof would require discharging the paper's
     geometric reasoning about disk packings and convex cell regions in
-    Mathlib — a substantial development we keep as future work.  This is
-    the single new axiom introduced by the Euclidean model (paralleling
-    the single axiom of `ContinuousModel.lean`). -/
-axiom continuous_safety_bridge_real {n nc : Nat} (d : ℝ) (hd : d ≥ 0)
-    (s : ContinuousMCStateReal n nc) :
+    Mathlib — a substantial development we keep as future work. -/
+axiom continuous_safety_bridge_real {n nc : Nat}
+    (targets : Fin nc → CellId2D n)
+    (d : ℝ) (hd : d ≥ 0)
+    (s : ContinuousMCStateReal n nc)
+    (hreach : ContinuousReachableReal targets s) :
     MCDiscreteSafe s.discrete → ContinuousSafeReal d s
 
 /- =================================================================== -/
@@ -127,29 +154,35 @@ axiom continuous_safety_bridge_real {n nc : Nat} (d : ℝ) (hd : d ≥ 0)
 
 /-- ★ Paper-form continuous Theorem 1 (Euclidean version).
 
-    For any continuous state whose underlying discrete state satisfies
-    `MCDiscreteSafe`, every pair of distinct entities at the same cell
-    has Euclidean distance at least `d` in ℝ².
+    For any continuous state whose underlying discrete state is
+    reachable in the multi-color transition system and whose ℝ²
+    positions form a valid placement, every pair of distinct entities
+    at the same cell has Euclidean distance at least `d` in ℝ².
 
     Paper reference: Theorem 1, Section 4.2 of TCS 2015. -/
-theorem continuous_theorem_1_real {n nc : Nat} (d : ℝ) (hd : d ≥ 0)
+theorem continuous_theorem_1_real {n nc : Nat}
+    (targets : Fin nc → CellId2D n)
+    (d : ℝ) (hd : d ≥ 0)
     (s : ContinuousMCStateReal n nc)
+    (hreach : ContinuousReachableReal targets s)
     (hds : MCDiscreteSafe s.discrete) :
     ContinuousSafeReal d s :=
-  continuous_safety_bridge_real d hd s hds
+  continuous_safety_bridge_real targets d hd s hreach hds
 
 /-- ★ Reachable-state version of the Euclidean Theorem 1.
 
-    Any reachable state of the multi-color transition system, lifted to a
-    continuous state in ℝ² with consistent positions, satisfies the real
-    Euclidean safety property. -/
+    Any reachable state of the multi-color transition system, lifted to
+    a continuous state in ℝ² with consistent positions that satisfy
+    `ValidContinuousPlacementReal`, satisfies the real Euclidean safety
+    property. -/
 theorem continuous_theorem_1_real_reachable {n nc : Nat}
     (targets : Fin nc → CellId2D n)
     (d : ℝ) (hd : d ≥ 0)
     (s : ContinuousMCStateReal n nc)
-    (hreach : Reachable (multiColorTS n nc targets) s.discrete) :
+    (hreach : Reachable (multiColorTS n nc targets) s.discrete)
+    (hplace : ValidContinuousPlacementReal targets s) :
     ContinuousSafeReal d s :=
-  continuous_safety_bridge_real d hd s
+  continuous_safety_bridge_real targets d hd s ⟨hreach, hplace⟩
     (mcDiscreteSafe_invariant n nc targets s.discrete hreach)
 
 /- =================================================================== -/

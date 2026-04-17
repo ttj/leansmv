@@ -60,11 +60,17 @@
     Per-color dist lower bound  mcDistLowerBound_invariant         MultiColorProofs
 
   LIVENESS (Section 4.5)
+    IsFairExecution predicate   IsFairExecution (def)             CellFlowsProofs
+                                (scopes the fairness axiom)
     Lemma 12 (fair signaling)   fair_execution_ranking_decreases  CellFlowsProofs
-                                (axiom — fairness assumption)
+                                (axiom — now requires IsFairExecution)
     Lemma 13 (signal often)     lemma13_entities_reach_target     CellFlowsProofs
-                                (derived from liveness_theorem, no new axiom)
+                                (derived from liveness_theorem, no new axiom;
+                                 now requires IsFairExecution hypothesis)
     ★ Theorem 2 (Liveness)      liveness_theorem                  CellFlowsProofs
+                                (now requires IsFairExecution hypothesis)
+    IsLockFair predicate        IsLockFair (def)                  MultiColorProofs
+                                (scopes the lock fairness axiom)
 
   PAPER NOTATION (Sections 3.2-4.4, Figures 7-11)
     NEPrev(x, i, c)             NEPrev                             PaperNotation
@@ -81,11 +87,15 @@
   CONTINUOUS MODEL (Section 2.3) — bridges discrete protocol to R² entities
     MetricPoint typeclass       MetricPoint                        ContinuousModel
     ContinuousEntity / state    ContinuousEntity / ContinuousMCState ContinuousModel
-    Multi-color discrete safety MCDiscreteSafe                     ContinuousModel
+    Multi-color discrete safety MCDiscreteSafe (6 conjuncts)       ContinuousModel
                                 mcDiscreteSafe_invariant           ContinuousModel
+    Valid placement (axiom)     ValidContinuousPlacement           ContinuousModel
+    Continuous reachability     ContinuousReachable (def)          ContinuousModel
     ★ Theorem 1 (continuous)    continuous_theorem_1               ContinuousModel
+                                (now requires ContinuousReachable)
                                 continuous_theorem_1_reachable     ContinuousModel
     Geometric bridge (axiom)    continuous_safety_bridge           ContinuousModel
+                                (now requires ContinuousReachable)
     Grid/Manhattan instance     GridPos (Mathlib-free example)     ContinuousModel
 
   EUCLIDEAN MODEL (Mathlib ℝ², Section 2.3 exact form)
@@ -93,9 +103,13 @@
     ContinuousEntityReal         entity with real-valued pos       EuclideanModel
     ContinuousMCStateReal        state with positions : list       EuclideanModel
     ContinuousSafeReal           dist p q ≥ d in ℝ                EuclideanModel
+    Valid placement (axiom)      ValidContinuousPlacementReal      EuclideanModel
+    Continuous reachability      ContinuousReachableReal (def)     EuclideanModel
     ★ Theorem 1 (Euclidean)      continuous_theorem_1_real         EuclideanModel
+                                 (now requires ContinuousReachableReal)
                                  continuous_theorem_1_real_reachable EuclideanModel
     Geometric bridge (axiom)     continuous_safety_bridge_real     EuclideanModel
+                                 (now requires ContinuousReachableReal)
     Sanity lemmas                pos2D_dist_self/symm/nonneg       EuclideanModel
 
   FINITE INSTANCES (NuXMV)
@@ -103,18 +117,34 @@
     2x2 grid with 2 colors      Cellular_mc_2x2TS_inv1..4_proved   CellularMC2x2Proofs
                                 (lock mutex, dist targets, bounds)
 
-  AXIOMS (9 total, 3 superseded; 6 active — 2 fairness + 2 docs + 2 geometric bridges)
-    ━━━ Active — fairness (2) ━━━
+  AXIOMS (11 total, 3 superseded; 8 active — 2 fairness + 2 docs + 2 bridges + 2 placement)
+    ━━━ Active — fairness (2, now scoped by IsFairExecution / IsLockFair) ━━━
     fair_execution_ranking_decreases  (Assumptions 3-4, Lemma 12)  CellFlowsProofs
+                                      now requires IsFairExecution
     lock_fairness_general             (Assumption 4, Lemma 11)     MultiColorProofs
+                                      now requires IsLockFair
     ━━━ Active — paper documentation (2, not proof-load-bearing) ━━━
     assumption1_projection_property   (Assumption 1, Section 2.5)  Assumptions
     assumption2_transfer_feasibility  (Assumption 2, Section 2.5)  Assumptions
-    ━━━ Active — geometric bridges (2, one per continuous model) ━━━
+    ━━━ Active — geometric bridges (2, now scoped by reachability) ━━━
     continuous_safety_bridge          (Nat model, Theorem 1 bridge) ContinuousModel
+                                      now requires ContinuousReachable
     continuous_safety_bridge_real     (ℝ² Mathlib, Theorem 1 bridge) EuclideanModel
+                                      now requires ContinuousReachableReal
+    ━━━ Active — valid-placement hypotheses (2, opaque Prop predicates) ━━━
+    ValidContinuousPlacement          (Nat model placement hyp)    ContinuousModel
+    ValidContinuousPlacementReal      (ℝ² Mathlib placement hyp)   EuclideanModel
     ━━━ Superseded (3) — kept for documentation ━━━
     GapSafe, gapSafe_init, gapPreservedByStep  (by safety_discrete) CellFlowsProofs
+
+  Note: the two new `ValidContinuousPlacement*` axioms are opaque
+  `Prop` predicates introduced to scope the geometric bridges to
+  protocol-generated states (rather than applying them to adversarial
+  continuous placements).  Previously the bridges were unsound on
+  arbitrary `ContinuousMCState`/`ContinuousMCStateReal` values; the
+  new hypothesis is the axiomatised continuous-level reachability
+  marker.  Active load is the same — the previously-permissive axioms
+  are now correctly scoped.
 
   ELIMINATED AXIOMS (during Phase 2 extensions)
     manhattan_neighbor_triangle → now a theorem (MultiColorProofs)

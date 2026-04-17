@@ -613,38 +613,91 @@ def distToNat (n : Nat) (d : DistVal) : Nat :=
 def livenessRank {n : Nat} (s : CellFlowState n) : Nat :=
   Fin.foldl n (fun acc i => acc + s.entities i * (distToNat n (s.dist i))) 0
 
-/-- Fairness axiom: in a fair execution, the liveness ranking function
-    strictly decreases at every step where V > 0.
+/-- Paper Assumption 4 (fair source/signal scheduling), formalised as:
+    in a fair execution, every target-connected non-empty cell has its
+    entity count strictly decrease within finitely many steps of any
+    given time.  Equivalently: no entity waits forever at a cell with a
+    feasible path.
 
-    This axiom encodes the paper's Assumptions 3-4 (no target failure,
-    fair source placement) and Lemmas 12-13 (fair signaling ensures
-    every nonempty target-connected cell eventually moves entities toward
-    the target). Combined, these guarantee that at each step of a fair
-    execution, at least one entity moves closer to the target, reducing
-    the weighted sum V by at least 1.
+    This is the formal fairness predicate needed by Theorem 2
+    (liveness).  It is a concrete definition rather than an axiom; the
+    axiom `fair_execution_ranking_decreases` below assumes that fair
+    executions of `cellFlowTS` translate this local fairness into the
+    global ranking-function strict-decrease property. -/
+def IsFairExecution {n : Nat} (exec : Execution (cellFlowTS n)) : Prop :=
+  ∀ i : Fin n, ∀ k : Nat,
+    (exec.states k).entities i > 0 →
+    (∃ m : Nat, (exec.states k).dist i = .fin m) →
+    ∃ k' : Nat, k' ≥ k ∧
+      (exec.states k').entities i < (exec.states k).entities i
+
+/-- Paper Assumptions 3-4, Lemmas 12-13: in a fair execution, the
+    weighted-distance ranking function strictly decreases from any
+    positive-V step within finitely many further steps.
+
+    This is an axiomatisation of the paper's fair-signaling claim — not
+    a per-step strict decrease (which would be inconsistent with the
+    stutter steps allowed by the transition system, where signal=none
+    everywhere and no entity moves).  The `hfair : IsFairExecution exec`
+    hypothesis scopes the axiom to executions that respect the paper's
+    fairness assumption; without it, applying this axiom to a stutter
+    execution would yield `V s > 0 → V s < V s`, a contradiction.
 
     Paper reference: Lemmas 12-13, Assumptions 3-4, Section 4. -/
 axiom fair_execution_ranking_decreases {n : Nat}
-    (exec : Execution (cellFlowTS n)) :
-    IsRankingFunction (cellFlowTS n) livenessRank (fun _ => True)
+    (exec : Execution (cellFlowTS n))
+    (hfair : IsFairExecution exec) :
+    ∀ k : Nat, livenessRank (exec.states k) > 0 →
+      ∃ k' : Nat, k' ≥ k ∧
+        livenessRank (exec.states k') < livenessRank (exec.states k)
+
+/-- Core induction for `liveness_theorem`: for any fuel bound `m`, if
+    the ranking is ≤ m at some step k, then it reaches 0 at some later
+    step.  Proved by induction on `m` using
+    `fair_execution_ranking_decreases` to step down. -/
+private theorem liveness_reach_zero_of_bound (n : Nat)
+    (exec : Execution (cellFlowTS n))
+    (hfair : IsFairExecution exec) :
+    ∀ m k : Nat, livenessRank (exec.states k) ≤ m →
+      ∃ k' : Nat, k' ≥ k ∧ livenessRank (exec.states k') = 0 := by
+  intro m
+  induction m with
+  | zero =>
+    intro k hle
+    -- livenessRank ≤ 0 means it IS 0.
+    exact ⟨k, Nat.le_refl k, Nat.le_zero.mp hle⟩
+  | succ m ih =>
+    intro k hle
+    by_cases hz : livenessRank (exec.states k) = 0
+    · exact ⟨k, Nat.le_refl k, hz⟩
+    · have hpos : livenessRank (exec.states k) > 0 := Nat.pos_of_ne_zero hz
+      obtain ⟨k₀, hk₀_ge, hk₀_lt⟩ :=
+        fair_execution_ranking_decreases exec hfair k hpos
+      -- livenessRank at k₀ is strictly less than at k, and ≤ m+1, so ≤ m.
+      have hle₀ : livenessRank (exec.states k₀) ≤ m := by omega
+      obtain ⟨k', hk'_ge, hk'_zero⟩ := ih k₀ hle₀
+      exact ⟨k', Nat.le_trans hk₀_ge hk'_ge, hk'_zero⟩
 
 /-- ★ Theorem 2 (TCS 2015): Liveness.
     In any fair execution of the cellular flows protocol, all entities
     eventually reach the target (livenessRank reaches 0).
 
-    Proof: the ranking function V = Σ entities(i) * dist(i) is a
-    natural-number-valued measure that strictly decreases at each step
-    (by fair_execution_ranking_decreases). By the general-purpose
-    ranking_implies_eventually theorem from TransitionSystem.lean,
-    V eventually reaches 0, meaning all entities are at the target
-    (distance 0) or have been absorbed. -/
+    Proof: strong induction on the initial ranking value `m =
+    livenessRank (exec.states 0)`.  We use the auxiliary
+    `liveness_reach_zero_of_bound` which, given an upper bound `m`,
+    finds a later step with ranking 0 by repeatedly invoking
+    `fair_execution_ranking_decreases` to shrink the ranking.  The
+    per-step strict-decrease form of the old axiom (inconsistent with
+    stutter steps) is replaced by the eventual-strict-decrease form
+    scoped to fair executions. -/
 theorem liveness_theorem (n : Nat)
-    (exec : Execution (cellFlowTS n)) :
-    Eventually exec (fun s => livenessRank s = 0) :=
-  ranking_implies_eventually (cellFlowTS n) livenessRank (fun _ => True)
-    (fair_execution_ranking_decreases exec)
-    ⟨fun _ _ => trivial, fun _ _ _ _ => trivial⟩
-    exec
+    (exec : Execution (cellFlowTS n))
+    (hfair : IsFairExecution exec) :
+    Eventually exec (fun s => livenessRank s = 0) := by
+  obtain ⟨k, _, hk⟩ :=
+    liveness_reach_zero_of_bound n exec hfair
+      (livenessRank (exec.states 0)) 0 (Nat.le_refl _)
+  exact ⟨k, hk⟩
 
 /- =================================================================== -/
 /- 12a. LEMMA 13 (Per-cell consequence of fair signaling)               -/
@@ -726,11 +779,12 @@ theorem livenessRank_zero_entity_dist_zero {n : Nat} (s : CellFlowState n)
     consequence of the paper's "signal_{next(i)} = i infinitely often".
     It is derived from `liveness_theorem` (no new axioms).  -/
 theorem lemma13_entities_reach_target {n : Nat}
-    (exec : Execution (cellFlowTS n)) :
+    (exec : Execution (cellFlowTS n))
+    (hfair : IsFairExecution exec) :
     ∃ k : Nat, ∀ i : Fin n,
       (exec.states k).entities i > 0 →
         distToNat n ((exec.states k).dist i) = 0 := by
-  obtain ⟨k, hk⟩ := liveness_theorem n exec
+  obtain ⟨k, hk⟩ := liveness_theorem n exec hfair
   refine ⟨k, ?_⟩
   intro i hei
   exact livenessRank_zero_entity_dist_zero (exec.states k) hk i hei

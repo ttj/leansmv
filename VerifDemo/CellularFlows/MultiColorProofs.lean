@@ -792,24 +792,53 @@ def lockRank {n nc : Nat} (c : Fin nc) (i : CellId2D n)
 /- 16. LEMMA 11: LOCK ACQUISITION (LIVENESS)                           -/
 /- =================================================================== -/
 
-/-- Generalized lock fairness: from any step k where needsLock holds,
-    lock is eventually acquired. This encodes the correctness of the
+/-- Lock fairness hypothesis (paper Assumption 4, token round-robin
+    fairness): at any step `k` where a color `c` needs a lock at cell
+    `i`, within finitely many later steps either `c` acquires the lock
+    at `i` or the need goes away (e.g. the path intersection dissolves).
+
+    This is the formal fairness predicate needed by Lemma 11 (lock
+    acquisition).  It is a concrete definition rather than an axiom;
+    the axiom `lock_fairness_general` below assumes that fair
+    executions of `multiColorTS` satisfy this property.
+
+    Scoping the axiom to fair executions (rather than to every
+    execution) is necessary for soundness: the transition system
+    admits stutter steps where no lock is granted, so an unscoped
+    axiom could be used to derive that a lock both is and is not
+    eventually acquired in a stutter trace. -/
+def IsLockFair {n nc : Nat} {targets : Fin nc → CellId2D n}
+    (exec : Execution (multiColorTS n nc targets)) : Prop :=
+  ∀ c : Fin nc, ∀ i : CellId2D n, ∀ k : Nat,
+    (exec.states k).needsLock c i = true →
+    ∃ k' : Nat, k' ≥ k ∧
+      ((exec.states k').lock c i = true ∨
+       (exec.states k').needsLock c i = false)
+
+/-- Generalised lock fairness: in a lock-fair execution, from any step
+    `k` where `needsLock c i` holds, the lock is eventually acquired
+    (or the need goes away).  This encodes the correctness of the
     distributed mutual exclusion protocol (Fig. 9, lines 8-17).
 
-    The paper proves this via Assumption 4 (token round-robin fairness):
-    the lock token cycles through all colors that need the lock at cell i.
-    Since at most nc colors exist, any requesting color waits at most
-    nc - 1 rounds before the token reaches it.
+    The paper proves this via Assumption 4 (token round-robin
+    fairness): the lock token cycles through all colors that need the
+    lock at cell `i`.  Since at most `nc` colors exist, any requesting
+    color waits at most `nc - 1` rounds before the token reaches it.
 
-    We axiomatize this because our transition system constrains the lock
-    protocol structurally (mutual exclusion, lock-implies-needsLock) but
-    does not model the explicit token rotation. A full proof would require
-    adding the token state to MCState and proving that the token advances
-    fairly.
+    We axiomatise this because our transition system constrains the
+    lock protocol structurally (mutual exclusion, lock-implies-
+    needsLock) but does not model the explicit token rotation.  A full
+    proof would require adding the token state to `MCState` and proving
+    that the token advances fairly.
+
+    The `hfair : IsLockFair exec` hypothesis is required for soundness
+    (see `IsLockFair` docstring).
 
     Paper ref: Lemma 11, Section 4.3. -/
 axiom lock_fairness_general {n nc : Nat} (targets : Fin nc → CellId2D n)
-    (exec : Execution (multiColorTS n nc targets)) (c : Fin nc) (i : CellId2D n)
+    (exec : Execution (multiColorTS n nc targets))
+    (hfair : IsLockFair exec)
+    (c : Fin nc) (i : CellId2D n)
     (k : Nat) :
     (exec.states k).needsLock c i = true →
     ∃ k' : Nat, k' ≥ k ∧ (exec.states k').lock c i = true
@@ -817,10 +846,12 @@ axiom lock_fairness_general {n nc : Nat} (targets : Fin nc → CellId2D n)
 /-- Lock fairness at step 0: any color requesting a lock at cell i
     eventually acquires it. Special case of lock_fairness_general. -/
 theorem lock_fairness {n nc : Nat} (targets : Fin nc → CellId2D n)
-    (exec : Execution (multiColorTS n nc targets)) (c : Fin nc) (i : CellId2D n)
+    (exec : Execution (multiColorTS n nc targets))
+    (hfair : IsLockFair exec)
+    (c : Fin nc) (i : CellId2D n)
     (hneeds : (exec.states 0).needsLock c i = true) :
     Eventually exec (fun s => s.lock c i = true) := by
-  obtain ⟨k', _, hk'⟩ := lock_fairness_general targets exec c i 0 hneeds
+  obtain ⟨k', _, hk'⟩ := lock_fairness_general targets exec hfair c i 0 hneeds
   exact ⟨k', hk'⟩
 
 /-- ★ Lemma 11 (Lock Acquisition): Any color c requesting a lock at
@@ -832,19 +863,23 @@ theorem lock_fairness {n nc : Nat} (targets : Fin nc → CellId2D n)
 
     Paper ref: Lemma 11, T.T. Johnson and S. Mitra, TCS 2015. -/
 theorem lock_acquisition {n nc : Nat} (targets : Fin nc → CellId2D n)
-    (exec : Execution (multiColorTS n nc targets)) (c : Fin nc) (i : CellId2D n)
+    (exec : Execution (multiColorTS n nc targets))
+    (hfair : IsLockFair exec)
+    (c : Fin nc) (i : CellId2D n)
     (hneeds : (exec.states 0).needsLock c i = true) :
     Eventually exec (fun s => s.lock c i = true) :=
-  lock_fairness targets exec c i hneeds
+  lock_fairness targets exec hfair c i hneeds
 
 /-- Lock acquisition also holds from any point in an execution, not just
     the initial state. If needsLock c i = true at step k, then lock c i
     becomes true at some later step. -/
 theorem lock_acquisition_from_step {n nc : Nat} (targets : Fin nc → CellId2D n)
-    (exec : Execution (multiColorTS n nc targets)) (c : Fin nc) (i : CellId2D n)
+    (exec : Execution (multiColorTS n nc targets))
+    (hfair : IsLockFair exec)
+    (c : Fin nc) (i : CellId2D n)
     (k : Nat) (hneeds : (exec.states k).needsLock c i = true) :
     ∃ k' : Nat, k' ≥ k ∧ (exec.states k').lock c i = true :=
-  lock_fairness_general targets exec c i k hneeds
+  lock_fairness_general targets exec hfair c i k hneeds
 
 /- =================================================================== -/
 /- 18. MC ROUTE CONVERGENCE (LEMMA 6, 2D GRID)                        -/

@@ -111,3 +111,40 @@ lake build
 ```
 
 Should complete in <30s with no Mathlib dependency. 29 build jobs.
+
+## Paper ambiguities surfaced by formalization
+
+These are small gaps in the 2015 paper that the Lean formalization had
+to resolve explicitly.  None of them changes the paper's results; they
+are noted here as feedback for a possible revised/extended version.
+
+1. **`argminDist` tie-breaking.** The paper states that when several
+   neighbors share the minimum distance, ties are broken lexicographically
+   by `(dist, ID)`.  The Lean implementation tie-breaks by list order
+   (whichever neighbor appears first in the neighborhood enumeration).
+   Both choices are consistent with the paper's invariants and proofs,
+   but the text should make explicit that any deterministic tie-break
+   suffices.
+
+2. **Corollary 7 rounds bound.** The paper expresses the convergence
+   bound as `2Δ(x)` where `Δ` is a diameter parameter of the cell
+   complex.  On the 2D grid, the Lean proof uses Manhattan distance
+   directly (one step per round).  The equivalence of the two bounds
+   depends on the chosen tessellation; the paper would benefit from
+   spelling this out in the grid case.
+
+3. **Assumption 2 scope.** Assumption 2 (transfer feasibility) is
+   declared in Section 2.5 but never explicitly invoked by name in the
+   paper's proof of Theorem 1; the formalization records it as a
+   documentation axiom (`assumption2_transfer_feasibility`) but does
+   not use it directly, because the geometric bridge absorbs its
+   content.  A pointer in the proof of Theorem 1 would clarify.
+
+4. **Fairness Assumption 4 wording.** The paper's informal statement
+   of Assumption 4 ("sources and signals are scheduled fairly") is not
+   precise enough to prove Theorem 2 or Lemma 11 in Lean.  The
+   formalization introduces explicit predicates `IsFairExecution` and
+   `IsLockFair` that pin down the required infinitely-often / within-
+   finitely-many-steps form.  Both are strictly stronger than a
+   per-step decrease, avoiding inconsistency with the transition
+   system's stutter steps.
