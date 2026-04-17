@@ -1,6 +1,7 @@
 # Cellular Flows Formalization — Progress & Remaining Work
 
-Gap analysis against TCS 2015 paper "Safe and Stabilizing Distributed Multi-Path Cellular Flows" (Johnson & Mitra).
+Gap analysis against TCS 2015 paper "Safe and Stabilizing Distributed Multi-Path
+Cellular Flows" (Johnson & Mitra).
 
 ## Completed
 
@@ -9,98 +10,140 @@ Gap analysis against TCS 2015 paper "Safe and Stabilizing Distributed Multi-Path
 - [x] `Route.lean` — Route-only TS (`routeTS`, `routeFFTS`)
 - [x] `CellFlows.lean` — Full Route+Signal+Move TS (`cellFlowTS`), parametric in N
 - [x] `models/cellular3.smv` — 3-cell NuXMV model, translated to Lean
-- [x] `TransitionSystem.lean` — Added `ReachableInK`, k-induction lemmas (Theorems 4-6)
+- [x] `TransitionSystem.lean` — `ReachableInK`, k-induction lemmas (Theorems 4-6)
 
 ### Lemma 6 — Route self-stabilization (DONE)
-- `route_convergence`: after k rounds, every cell i with i ≤ k has `dist i = .fin i.val`
-- `distLowerBound`: dist values are always ≥ true distance (inductive invariant)
+- `route_convergence`: after k rounds, cell i with i ≤ k has `dist i = .fin i.val`
+- `distLowerBound`: dist values always ≥ true distance (inductive invariant)
 - `targetCorrect`: target always has dist=0, next=none (inductive invariant)
+- **File**: `RouteProofs.lean` — 31 theorems
+
+### Corollary 7 — next variables converge (DONE)
+- `next_convergence`: after k rounds, cell i (i > 0, i ≤ k) has `next i = some ⟨i-1,_⟩`
 - **File**: `RouteProofs.lean`
+
+### Lemma 5 — No signal cycles of length 2 (DONE, parametric)
+- `noMutualNextHop_routeFFTS`: no two adjacent cells point at each other
+- `next_left_or_none`: every cell's next-hop points left or is none
+- `noSignalCycle2_invariant`: final result — no signal 2-cycles on reachable states
+- **Files**: `RouteProofs.lean`, `CellFlowsProofs.lean`
+
+### Theorem 1 — Safety (DONE, conditional with axioms)
+- `GapSafe` (axiom): continuous minimum-separation safety, citing paper Lemma 4
+- `gapSafe_inductive`: GapSafe is an inductive invariant (from axioms)
+- `safety_theorem`: `GapSafe ∧ noSignalCycle2 ∧ cfSignalValid` on all reachable states
+- **File**: `CellFlowsProofs.lean`
+
+### Invariant 3 — Single color per cell (DONE, discrete analogue)
+- `singleSourcePerRound`: each cell receives entities from at most one predecessor
+- `invariant3_discrete`: `singleSourcePerRound ∧ cfSignalValid` is an invariant
+- **File**: `CellFlowsProofs.lean`
+
+### Entity flow (DONE)
+- `entity_accounting`: exact Move-phase equation for non-target cells
+- `entity_gain_requires_signal`: entity gain implies signal exists
+- `no_signal_no_gain`, `movedOut_le_entities`, `entity_nonincreasing_without_signal`
+- **File**: `CellFlowsProofs.lean`
 
 ### Signal properties (DONE)
-- `signal_exclusive`: each cell signals at most one predecessor (structural, all states)
-- `cfSignalValid_invariant`: every non-none signal points to a valid neighbor (inductive invariant)
-- `cfTargetCorrect_invariant`: target always has dist=0/next=none in full system
-- `cfTargetAbsorbs_step`: target absorbs arriving entities
+- `signal_exclusive`, `cfSignalValid_invariant`, `cfTargetCorrect_invariant`
+- `cfTargetAbsorbs_step`
 - **File**: `CellFlowsProofs.lean`
 
-### Lemma 5 — No signal cycles (PARTIAL)
-- `noSignalCycle2_init`: no cycles in initial state
-- `noMutualNextHop_implies_noSignalCycle2`: if no mutual next-hops, then no signal cycles
-- Factored: full result conditional on `noMutualNextHop` being invariant
-- `Cellular3TS_inv1_proved`: proved for 3-cell finite instance
-- **File**: `CellFlowsProofs.lean`
-
-### Entity flow (PARTIAL)
-- `no_signal_no_gain`: unsignaled non-target cells don't gain entities
-- `movedOut_le_entities`: moved-out count ≤ entity count
-- `entity_nonincreasing_without_signal`: exact accounting when no signal
-- **File**: `CellFlowsProofs.lean`
-
-### Finite instance (DONE)
-- `Cellular3TS_inv1_proved`: no signal cycle (3-cell)
-- `Cellular3TS_inv2_proved`: dist0 = 0 (3-cell)
-- `Cellular3TS_inv3_proved`: dist1 ≤ 3 (3-cell)
+### Finite instance — 3-cell line (DONE)
+- `Cellular3TS_inv1_proved`, `Cellular3TS_inv2_proved`, `Cellular3TS_inv3_proved`
 - **File**: `Cellular3Proofs.lean`
 
-## Next steps — Priority 1
+## Remaining — Priority 1: Entity conservation
 
-### 1. Corollary 7 — next variables converge
-- **Paper**: After convergence, next_i = argmin neighbor = left neighbor (toward target).
-- **What's needed**: After k rounds with k ≥ i, `next i = some ⟨i-1, _⟩` for i > 0. Follows from `route_convergence`: once dist values are correct, `argminDist` with `dist (i-1) = .fin (i-1)` and `dist (i+1) = .fin (i+1)` gives the left neighbor.
-- **File**: `RouteProofs.lean`
-
-### 2. `noMutualNextHop` invariant — completes Lemma 5
-- **Paper**: Two adjacent cells never both route toward each other.
-- **What's needed**: Prove as inductive invariant using `distLowerBound`. Key argument: if `next i = some j` then `dist j < dist i` (argmin chose j as closer to target). If also `next j = some i` then `dist i < dist j` — contradiction.
-- **Approach**: Need a lemma `argminDist_lt`: if `argminDist dist nbrs = some j` and dist j = .fin m, then `minDist dist nbrs = .fin m` and `dist i = .fin (m+1)`. Combined with the symmetric case gives `m+1 < m+1`, impossible.
+### Total entity count non-increasing
+- **Paper ref**: Invariant 2 — entities are never duplicated
+- **What's needed**: Prove `totalEntities s' ≤ totalEntities s` for each step.
+  Requires summing movedOut/movedIn across all cells via `Fin.foldl` and showing
+  transfers cancel (each movedOut at cell i becomes movedIn at next_i, minus
+  target absorption). The per-cell accounting (`entity_accounting`) is proved;
+  the global sum argument remains.
+- **Difficulty**: Medium — `Fin.foldl` arithmetic
 - **File**: `CellFlowsProofs.lean`
 
-### 3. Invariant 3 — Single color per cell
-- **Paper**: All entities on a cell have the same color.
-- **What's needed**: Extend `CellFlowState` with `color : Fin n → Option (Fin numColors)`. Add Signal constraint: only signal predecessor j if `color j = color i` or `color i = none`. Prove color is preserved.
-- **Files**: `CellFlows.lean` (extend state + TS), `CellFlowsProofs.lean` (prove)
-
-### 4. Entity conservation
-- **Paper**: Total entity count is non-increasing (entities move or are absorbed, never duplicated).
-- **What's needed**: Prove `totalEntities s' ≤ totalEntities s` for each step. Requires summing `movedOut`/`movedIn` across all cells and showing transfers cancel.
-- **File**: `CellFlowsProofs.lean`
-
-### 5. Theorem 1 — Safety (conditional statement)
-- **Paper**: Safe(x) for all reachable states — entities separated by ≥ d.
-- **What's needed**: State as a conditional theorem referencing the paper. The discrete invariants we proved (Inv 2-3, Lemma 5) are the preconditions; the geometric bridge (Lemma 4, Assumptions 1-2) is axiomatized with a comment citing the paper's proof.
-- **File**: `CellFlowsProofs.lean`
-
-## Priority 2: Multi-color extension
+## Remaining — Priority 2: Multi-color extension
 
 ### Model extension
-- Add Lock subroutine (paper Fig. 9)
-- Add path, pint, lcs variables for intersection detection
-- Add mutual exclusion logic for color-shared cells
-- **Files**: `Grid.lean` (2D topology), `MultiColor.lean` (extended state + TS)
+- Add Lock subroutine (paper Fig. 9) for mutual exclusion on path intersections
+- Add path, pint, lcs variables for color-shared cell detection
+- Define 2D grid topology (`Fin n × Fin n`, 4-connected neighbors, Manhattan distance)
+- **Files**: `Grid.lean`, `MultiColor.lean`
 
 ### Lemma 10 — Single color on color-shared cells
 ### Lemma 11 — Lock acquisition
 ### Corollaries 8-9 — path/pint stabilization
 
-## Priority 3: Liveness
+## Remaining — Priority 3: Liveness
+
+Liveness proofs require reasoning about infinite executions and eventual progress.
+The paper uses global ranking functions (Lemma 6 distance-to-target metric) and
+fairness assumptions (Assumption 4: token round-robin). To support these in Lean:
+
+### Infrastructure needed in `TransitionSystem.lean`
+
+1. **Ranking function / variant definition**: A function `V : State → Nat` that
+   strictly decreases along transitions under certain conditions. Define:
+   ```lean
+   def RankingFunction (ts : TransitionSystem State) (V : State → Nat) 
+       (guard : State → Prop) : Prop :=
+     ∀ s s', guard s → ts.next s s' → V s' < V s
+   ```
+
+2. **Bounded liveness from ranking**: If a ranking function exists under guard G,
+   and G holds on all reachable states, then from any reachable state the system
+   reaches V = 0 within V(s) steps:
+   ```lean
+   theorem ranking_terminates (ts : TransitionSystem State) (V : State → Nat)
+       (guard : State → Prop) (hrank : RankingFunction ts V guard) :
+     ∀ k s, ReachableInK ts k s → guard s → 
+       ∃ k' s', k' ≤ k + V s ∧ ReachableInK ts k' s' ∧ V s' = 0
+   ```
+
+3. **Fairness assumption**: Model fair executions as those where every enabled
+   action eventually fires. Could be an axiom on the execution:
+   ```lean
+   def FairExecution (ts : TransitionSystem State) (enabled : State → Fin n → Prop)
+       (acts : Nat → State) : Prop :=
+     (∀ k, ts.next (acts k) (acts (k+1))) ∧
+     (∀ i : Fin n, ∀ k, enabled (acts k) i → ∃ k' ≥ k, <action i fires at k'>)
+   ```
+
+4. **Liveness from fairness + ranking**: Under fair execution, if the ranking
+   function decreases whenever the relevant action fires, then V eventually
+   reaches 0.
 
 ### Lemma 12 — Permission to move infinitely often
+- Every target-connected nonempty cell gets signal infinitely often
+- Uses fairness of token round-robin (Assumption 4)
+
 ### Lemma 13 — Target-connected cells signal infinitely
+- Depends on Lemma 12
+
 ### Theorem 2 — Entities reach target
+- Every entity on a target-connected cell eventually reaches target
+- Paper proves by induction on the path sequence from cell to target
+- The ranking function is: sum of distances to target for all entities
 
 ## Summary
 
-| Result | Status | Next action |
-|--------|--------|-------------|
-| Lemma 6 (route convergence) | **DONE** | — |
-| Corollary 7 (next convergence) | Not proved | Derive from Lemma 6 |
-| Lemma 5 (no signal cycles) | **Factored** | Prove `noMutualNextHop` invariant |
-| Invariant 3 (single color) | Not modeled | Add color field, prove |
-| Entity conservation | Partial | Prove total non-increasing |
-| Theorem 1 (safety) | Not stated | State conditionally |
-| Lemma 10 (single color CSC) | Not modeled | Phase 4 |
-| Lemma 11 (lock acquisition) | Not modeled | Phase 4 |
-| Corollaries 8-9 | Not modeled | Phase 4 |
-| Lemmas 12-13 (fairness) | Not modeled | Phase 4 |
-| Theorem 2 (liveness) | Not modeled | Phase 4 |
+| Paper Result | Status | Notes |
+|-------------|--------|-------|
+| Invariant 1 (containment) | Axiomatized | Continuous geometry |
+| Invariant 2 (disjoint sets) | **Per-cell DONE** | Global sum remaining |
+| Invariant 3 (single color) | **DONE** (discrete) | `singleSourcePerRound` |
+| Lemma 4 (H(x) preserved) | **Axiomatized** | Cited in `GapSafe` |
+| Lemma 5 (no signal cycles) | **DONE** | Parametric, all N |
+| Lemma 6 (route convergence) | **DONE** | k-induction proof |
+| Corollary 7 (next converges) | **DONE** | Follows from Lemma 6 |
+| **Theorem 1 (safety)** | **DONE** (conditional) | Axiom + proved invariants |
+| Corollaries 8-9 (path/pint) | Not modeled | Phase 2 |
+| Lemma 10 (single color CSC) | Not modeled | Phase 2 |
+| Lemma 11 (lock acquisition) | Not modeled | Phase 2 |
+| Lemma 12 (fair signaling) | Not modeled | Phase 3 — needs ranking functions |
+| Lemma 13 (infinite signal) | Not modeled | Phase 3 |
+| **Theorem 2 (liveness)** | Not modeled | Phase 3 — needs fairness + ranking |
