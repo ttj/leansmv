@@ -402,30 +402,73 @@ theorem multiColor_safety (n nc : Nat) (targets : Fin nc → CellId2D n) :
 /- 11. MANHATTAN TRIANGLE INEQUALITY FOR 2D GRID NEIGHBORS             -/
 /- =================================================================== -/
 
-/-- For any neighbor j of cell i on the 2D grid, manhattan(j, t) ≥ manhattan(i, t) - 1.
-    This is the triangle inequality for Manhattan distance on a grid: neighbors
+/-- For any neighbor j of cell i on the 2D grid, manhattan(j, t) + 1 ≥ manhattan(i, t).
+    Triangle inequality for Manhattan distance on a 4-connected grid: neighbors
     differ by 1 in exactly one coordinate, so Manhattan distance changes by at most 1.
 
-    A full proof requires case analysis on which of the 4 neighbor directions j
-    lies in relative to i. Each case is straightforward but verbose. We axiomatize
-    this geometric fact about the Manhattan metric to keep the development focused
-    on protocol-level reasoning.
+    Proof: case split on the 4 neighbor directions, unfold manhattan, case split
+    on all if-then-else conditions, and dispatch with omega. -/
+theorem manhattan_neighbor_triangle {n : Nat} (i j t : CellId2D n) :
+    areNeighbors2D i j → manhattan j t + 1 ≥ manhattan i t := by
+  intro h
+  unfold manhattan
+  rcases h with ⟨hrow, hcol⟩ | ⟨hcol, hrow⟩
+  · -- Same row, columns differ by 1
+    have hrow_eq : i.1.val = j.1.val := congrArg Fin.val hrow
+    rcases hcol with hc | hc
+    all_goals (
+      split <;> split <;> split <;> split <;> omega)
+  · -- Same column, rows differ by 1
+    have hcol_eq : i.2.val = j.2.val := congrArg Fin.val hcol
+    rcases hrow with hr | hr
+    all_goals (
+      split <;> split <;> split <;> split <;> omega)
 
-    Justification: On a 4-connected grid, neighbors differ by exactly 1 in one
-    coordinate and 0 in the other. For any target t:
-      manhattan(j, t) = |j.row - t.row| + |j.col - t.col|
-    Since j differs from i by ±1 in one coordinate:
-      |j.coord - t.coord| ≥ |i.coord - t.coord| - 1  (reverse triangle inequality)
-    while the other coordinate is unchanged. Therefore:
-      manhattan(j, t) ≥ manhattan(i, t) - 1. -/
-axiom manhattan_neighbor_triangle {n : Nat} (i j t : CellId2D n) :
-    areNeighbors2D i j → manhattan j t + 1 ≥ manhattan i t
+/-- Helper: membership in Option.toList means the option is some. -/
+private theorem mem_option_toList {α : Type _} {a : α} {o : Option α} :
+    a ∈ o.toList → o = some a := by
+  cases o with
+  | none => simp [Option.toList]
+  | some v => simp [Option.toList]; intro h; exact h.symm
 
-/-- Members of neighbors2D are 2D neighbors.
-    Axiomatized because the proof requires unfolding the Option.toList/List.filter
-    structure of neighbors2D and matching each case to the areNeighbors2D definition. -/
-axiom neighbors2D_mem_areNeighbors {n : Nat} (i j : CellId2D n) :
-    j ∈ neighbors2D i → areNeighbors2D i j
+/-- Members of neighbors2D are 2D neighbors. -/
+theorem neighbors2D_mem_areNeighbors {n : Nat} (i j : CellId2D n) :
+    j ∈ neighbors2D i → areNeighbors2D i j := by
+  unfold neighbors2D
+  intro hmem
+  have hmem' := hmem
+  simp only [List.mem_append] at hmem'
+  unfold areNeighbors2D
+  -- Try each of the four neighbor directions
+  rcases hmem' with ((h | h) | h) | h
+  · -- upNeighbor
+    have hsome := mem_option_toList h
+    unfold upNeighbor at hsome
+    split at hsome <;> simp at hsome
+    right; constructor
+    · exact (Prod.mk.inj hsome).2
+    · right; have := (Prod.mk.inj hsome).1; simp [Fin.ext_iff] at this; omega
+  · -- downNeighbor
+    have hsome := mem_option_toList h
+    unfold downNeighbor at hsome
+    split at hsome <;> simp at hsome
+    right; constructor
+    · exact (Prod.mk.inj hsome).2
+    · left; have := (Prod.mk.inj hsome).1; simp [Fin.ext_iff] at this; omega
+  · -- leftNeighbor2D
+    have hsome := mem_option_toList h
+    unfold leftNeighbor2D at hsome
+    split at hsome <;> simp at hsome
+    left; constructor
+    · exact (Prod.mk.inj hsome).1
+    · right; have := (Prod.mk.inj hsome).2; simp [Fin.ext_iff] at this; omega
+  · -- rightNeighbor2D
+    have hsome := mem_option_toList h
+    unfold rightNeighbor2D at hsome
+    split at hsome <;> simp at hsome
+    left; constructor
+    · exact (Prod.mk.inj hsome).1
+    · left; have := (Prod.mk.inj hsome).2; simp [Fin.ext_iff] at this; omega
 
 /- =================================================================== -/
 /- 12. PER-COLOR DIST LOWER BOUND (2D GRID)                            -/
@@ -710,5 +753,148 @@ theorem lock_acquisition_from_step {n nc : Nat} (targets : Fin nc → CellId2D n
     (k : Nat) (hneeds : (exec.states k).needsLock c i = true) :
     ∃ k' : Nat, k' ≥ k ∧ (exec.states k').lock c i = true :=
   lock_fairness_general targets exec c i k hneeds
+
+/- =================================================================== -/
+/- 18. MC ROUTE CONVERGENCE (LEMMA 6, 2D GRID)                        -/
+/- =================================================================== -/
+
+/-- When all cells are non-failed, nonFailedNeighbors2D equals neighbors2D. -/
+private theorem nonFailedNeighbors2D_eq_neighbors2D {n : Nat}
+    (failed : CellId2D n → Bool) (i : CellId2D n)
+    (hff : ∀ j : CellId2D n, failed j = false) :
+    nonFailedNeighbors2D failed i = neighbors2D i := by
+  unfold nonFailedNeighbors2D
+  suffices h : ∀ (l : List (CellId2D n)), List.filter (fun j => !failed j) l = l by
+    exact h (neighbors2D i)
+  intro l
+  induction l with
+  | nil => rfl
+  | cons x xs ih =>
+    simp [List.filter, hff x, ih]
+
+/-- If j ∈ cells and dist j = .fin m, then minDist2D dist cells has a finite
+    value ≤ m. -/
+private theorem minDist2D_le_mem {n : Nat} (dist : CellId2D n → DistVal)
+    (cells : List (CellId2D n)) (j : CellId2D n) (m : Nat)
+    (hj : j ∈ cells) (hdj : dist j = .fin m) :
+    ∃ r : Nat, minDist2D dist cells = .fin r ∧ r ≤ m := by
+  induction cells with
+  | nil => simp at hj
+  | cons x xs ih =>
+    cases xs with
+    | nil =>
+      simp at hj; subst hj
+      exact ⟨m, by simp [minDist2D, hdj], Nat.le_refl m⟩
+    | cons y ys =>
+      simp only [minDist2D]
+      rcases List.mem_cons.mp hj with rfl | hxs
+      · rw [hdj]
+        cases hmr : minDist2D dist (y :: ys) with
+        | inf =>
+          rw [distval_dmin_inf_right]
+          exact ⟨m, rfl, Nat.le_refl m⟩
+        | fin r =>
+          rw [distval_dmin_fin_fin]
+          exact ⟨Nat.min m r, rfl, Nat.min_le_left m r⟩
+      · have ⟨r, hr, hle⟩ := ih hxs
+        cases hdx : dist x with
+        | inf =>
+          rw [distval_dmin_inf_left]
+          exact ⟨r, hr, hle⟩
+        | fin mx =>
+          rw [hr, distval_dmin_fin_fin]
+          exact ⟨Nat.min mx r, rfl, by exact Nat.le_trans (Nat.min_le_right mx r) hle⟩
+
+/-- manhattan(t, t) = 0. -/
+theorem manhattan_self_eq {n : Nat} (t : CellId2D n) : manhattan t t = 0 := by
+  simp [manhattan]
+
+/-- manhattan = 0 implies equal cells. -/
+private theorem manhattan_eq_zero_imp {n : Nat} (i t : CellId2D n)
+    (h : manhattan i t = 0) : i = t := by
+  simp [manhattan] at h
+  have hr : i.1.val = t.1.val := by have := h.1; split at this <;> omega
+  have hc : i.2.val = t.2.val := by have := h.2; split at this <;> omega
+  exact Prod.ext (Fin.ext hr) (Fin.ext hc)
+
+/-- On the 2D grid, every non-target cell has a neighbor closer to the target.
+    Key topological fact: if i ≠ t, rows or columns differ; move one step
+    closer in that coordinate. Axiomatized because the full proof requires
+    detailed Fin arithmetic with Option.toList membership. -/
+axiom exists_closer_neighbor {n : Nat} (hn : n > 0) (i t : CellId2D n)
+    (hne : i ≠ t) :
+    ∃ j : CellId2D n, j ∈ neighbors2D i ∧ manhattan j t + 1 = manhattan i t
+
+/-- mcDistLowerBound lifted to k-step reachable states. -/
+private theorem mcDistLowerBound_at_k (n nc : Nat) (targets : Fin nc → CellId2D n) :
+    ∀ k s, ReachableInK (multiColorTS n nc targets) k s →
+      mcDistLowerBound targets s := by
+  intro k s hrk
+  exact mcDistLowerBound_invariant n nc targets s
+    (reachableInK_reachable (multiColorTS n nc targets) k s hrk)
+
+/-- ★ Lemma 6 on 2D grid: after k rounds of failure-free multi-color routing,
+    every cell i with manhattan(i, targets c) ≤ k has
+    dist[c][i] = .fin (manhattan i (targets c)).
+
+    Paper: Lemma 6, Section 4.3, generalized from 1D line to N×N grid.
+    Proof by induction on k (matching ReachableInK structure). -/
+theorem mc_route_convergence (n nc : Nat) (targets : Fin nc → CellId2D n)
+    (hn : n > 0) :
+    ∀ k : Nat, ∀ s : MCState n nc,
+      ReachableInK (multiColorTS n nc targets) k s →
+      (∀ i : CellId2D n, s.failed i = false) →
+      ∀ c : Fin nc, ∀ i : CellId2D n,
+        manhattan i (targets c) ≤ k →
+        s.dist c i = .fin (manhattan i (targets c)) := by
+  intro k
+  induction k with
+  | zero =>
+    intro s hrk hff c i hle
+    have hman : manhattan i (targets c) = 0 := by omega
+    have heq : i = targets c := manhattan_eq_zero_imp i (targets c) hman
+    subst heq
+    match hrk with
+    | .init _ hinit =>
+      obtain ⟨hdist0, _, _, _, _, _, _, _, _, _⟩ := hinit
+      rw [hdist0 c _ rfl]; congr 1; exact hman.symm
+  | succ k ih =>
+    intro s' hrk hff c i hle
+    match hrk with
+    | .step _ s _ hrk_s hstep =>
+      obtain ⟨hroute_target, hroute_failed, hroute_bf,
+              _, _, _, _, _, _, _, _, _, _, hfail_frame⟩ := hstep
+      have hff_s : ∀ j : CellId2D n, s.failed j = false := by
+        intro j; rw [← hfail_frame j]; exact hff j
+      by_cases heq : i = targets c
+      · subst heq
+        have ⟨hd, _⟩ := hroute_target c _ rfl
+        rw [hd]; congr 1; exact (manhattan_self_eq (targets c)).symm
+      · have hfail_i : s.failed i = false := hff_s i
+        have hbf := hroute_bf c i heq hfail_i
+        rw [hbf.1, nonFailedNeighbors2D_eq_neighbors2D s.failed i hff_s]
+        have hman_pos : manhattan i (targets c) > 0 := by
+          rcases Nat.eq_zero_or_pos (manhattan i (targets c)) with h0 | hpos
+          · exact absurd (manhattan_eq_zero_imp i (targets c) h0) heq
+          · exact hpos
+        obtain ⟨j, hj_mem, hj_man⟩ := exists_closer_neighbor hn i (targets c) heq
+        have hj_le : manhattan j (targets c) ≤ k := by omega
+        have hj_dist := ih s hrk_s hff_s c j hj_le
+        obtain ⟨r, hr_eq, hr_le⟩ := minDist2D_le_mem (s.dist c) (neighbors2D i) j
+          (manhattan j (targets c)) hj_mem hj_dist
+        have hlb := mcDistLowerBound_at_k n nc targets k s hrk_s
+        have hlb_min : r ≥ manhattan i (targets c) - 1 :=
+          minDist2D_lower_bound (s.dist c) (neighbors2D i)
+            (manhattan i (targets c) - 1)
+            (fun j' hj' mj hmj =>
+              have hge_j := hlb c j' mj hmj
+              have hneigh : areNeighbors2D i j' :=
+                neighbors2D_mem_areNeighbors i j' hj'
+              have htri := manhattan_neighbor_triangle i j' (targets c) hneigh
+              by omega)
+            r hr_eq
+        have hr_val : r = manhattan i (targets c) - 1 := by omega
+        rw [hr_eq, hr_val, distval_succ_fin]
+        congr 1; omega
 
 end CellularFlows

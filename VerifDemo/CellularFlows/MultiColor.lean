@@ -65,6 +65,27 @@ structure MCState (n nc : Nat) where
   /-- Failure tracking: whether each cell has failed. -/
   failed    : CellId2D n → Bool
 
+/-- Helper: compute entity count moved out of cell i in the multi-color system.
+    Cell i loses all entities if its next-hop (for its color) signals it,
+    i.e., signal(ni) = some i. Returns old entity count or 0. -/
+def movedOutMC {n nc : Nat} (s : MCState n nc) (signal' : CellId2D n → Option (CellId2D n))
+    (next' : Fin nc → CellId2D n → Option (CellId2D n)) (i : CellId2D n) : Nat :=
+  match s.color i with
+  | some c => match next' c i with
+    | some ni => if signal' ni = some i then s.entities i else 0
+    | none => 0
+  | none => 0
+
+/-- Helper: compute entity count moved into cell i in the multi-color system.
+    Cell i receives entities from whichever predecessor j it signaled,
+    i.e., if signal'(i) = some j, then all of j's entities move in.
+    Returns old entity count of j, or 0 if no signal. -/
+def movedInMC {n nc : Nat} (s : MCState n nc) (signal' : CellId2D n → Option (CellId2D n))
+    (i : CellId2D n) : Nat :=
+  match signal' i with
+  | some j => s.entities j
+  | none => 0
+
 /-- The multi-color cellular flows transition system on an N×N 2D grid.
 
     Parameters:
@@ -155,7 +176,7 @@ def multiColorTS (n nc : Nat) (targets : Fin nc → CellId2D n) :
     -- If no signal points to i, entities can only decrease (move out)
     (∀ i : CellId2D n, (∀ c : Fin nc, i ≠ targets c) → s.failed i = false →
       (s'.signal i = none → s'.entities i ≤ s.entities i) ∧
-      True) ∧
+      s'.entities i = s.entities i - movedOutMC s s'.signal s'.next i + movedInMC s s'.signal i) ∧
     -- Color tracking: empty cells have no color
     (∀ i : CellId2D n, s'.entities i = 0 → s'.color i = none) ∧
     -- Color of arriving entities matches source color
@@ -163,5 +184,23 @@ def multiColorTS (n nc : Nat) (targets : Fin nc → CellId2D n) :
       s'.color i = s.color j) ∧
     -- Failure frame: failures don't change
     (∀ i : CellId2D n, s'.failed i = s.failed i)
+
+/-- Target-connected predicate: cell i is target-connected for color c
+    if dist[c][i] is finite (there exists a path to the target).
+    Paper: TC(x,c) = {i ∈ NF(x) | ρ_c(x,i) < ∞}. Section 4.3. -/
+def targetConnected {n nc : Nat} (s : MCState n nc) (c : Fin nc) (i : CellId2D n) : Prop :=
+  s.failed i = false ∧ ∃ m : Nat, s.dist c i = .fin m
+
+/-- Entity graph vertex set for color c: cells that are non-faulty and either
+    have entities of color c, are a source of c, or are the nearest target-connected
+    cell. Paper: V_E(x,c). Section 3.3.2. -/
+def entityGraphVertex {n nc : Nat} (s : MCState n nc) (c : Fin nc) (i : CellId2D n) : Prop :=
+  s.failed i = false ∧
+  (s.color i = some c ∨ targetConnected s c i)
+
+/-- Color-shared cells: cells where entity graphs of different colors intersect.
+    Paper: CSC(x,c) = {V_E(x,d) | d ∈ SC(x,c) ∧ d ≠ c}. Section 3.3.2. -/
+def colorSharedCell {n nc : Nat} (s : MCState n nc) (c : Fin nc) (i : CellId2D n) : Prop :=
+  ∃ d : Fin nc, d ≠ c ∧ entityGraphVertex s c i ∧ entityGraphVertex s d i
 
 end CellularFlows
