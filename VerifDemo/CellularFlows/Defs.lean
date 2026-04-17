@@ -39,13 +39,15 @@
   ROUTING & STABILIZATION (Section 4.3)
     Lemma 6 (convergence, 1D)   route_convergence                 RouteProofs
     Lemma 6 (convergence, 2D)   mc_route_convergence              MultiColorProofs
-    Corollary 7 (next conv.)    next_convergence                  RouteProofs
+    Corollary 7 (next conv, 1D) next_convergence                  RouteProofs
+    Corollary 7 (next conv, 2D) mc_next_convergence               MultiColorProofs
     distLowerBound              distLowerBound_invariant           RouteProofs
     next_left_or_none           next_left_or_none                 RouteProofs
     noMutualNextHop             noMutualNextHop_invariant          CellFlowsProofs
     exists_closer_neighbor      (proved, was axiom)               MultiColorProofs
     Self-stabilization (1D)     route_self_stabilizes             Stabilization
                                 route_next_self_stabilizes        Stabilization
+    Self-stabilization (2D)     mc_route_self_stabilizes          Stabilization2D
 
   MULTI-COLOR (Section 4.4)
     Corollary 8 (path stable)   path_stabilization (proved theorem) MultiColorProofs

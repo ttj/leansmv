@@ -1,8 +1,8 @@
 # Cellular Flows Formalization — Final Status (Phase 2)
 
 Lean 4 formalization of "Safe and Stabilizing Distributed Multi-Path Cellular
-Flows" (Johnson & Mitra, TCS 2015). **3,747 lines, 140+ theorems, zero `sorry`**,
-29 build jobs. All paper results covered.
+Flows" (Johnson & Mitra, TCS 2015). **4,400+ lines, 150+ theorems, zero `sorry`**,
+30 build jobs. All paper results covered in both 1D and 2D.
 
 See the correspondence table in `Defs.lean` for the full paper-to-Lean mapping.
 
@@ -18,7 +18,9 @@ See the correspondence table in `Defs.lean` for the full paper-to-Lean mapping.
 - Lemma 6 (route convergence, 1D from init) — `route_convergence`
 - Lemma 6 (route convergence, 2D) — `mc_route_convergence` (AXIOM-FREE after Phase A)
 - Corollary 7 (next convergence, 1D from init) — `next_convergence`
-- **NEW: Self-stabilization from arbitrary state (1D)** — `route_self_stabilizes`, `route_next_self_stabilizes` (Stabilization.lean)
+- **Corollary 7 (next convergence, 2D grid)** — `mc_next_convergence` (Phase 2D)
+- **Self-stabilization from arbitrary state (1D)** — `route_self_stabilizes`, `route_next_self_stabilizes` (Stabilization.lean)
+- **Self-stabilization from arbitrary state (2D)** — `mc_route_self_stabilizes` (Stabilization2D.lean, Phase 2D)
 - Manhattan triangle inequality — `manhattan_neighbor_triangle`
 - Closer-neighbor existence — `exists_closer_neighbor` (PROVED in Phase A)
 
@@ -73,7 +75,8 @@ Starting from 5 active axioms + 3 superseded; ended at 2 active + 3 superseded.
 | Grid.lean | 91 | 2D grid topology, Manhattan distance |
 | Route.lean | 72 | Route-only TS (`routeTS`, `routeFFTS`) |
 | RouteProofs.lean | 462 | Lemma 6, Cor 7, distLowerBound (31 theorems) |
-| **Stabilization.lean** | **372** | **Self-stabilization from arbitrary state (Phase B, NEW)** |
+| **Stabilization.lean** | **372** | **Self-stabilization from arbitrary state, 1D (Phase B)** |
+| **Stabilization2D.lean** | **433** | **Self-stabilization from arbitrary state, 2D grid (NEW)** |
 | CellFlows.lean | 154 | Full single-color TS |
 | CellFlowsProofs.lean | 718 | Theorem 1 & 2, Lemma 5, entity flow (25 theorems) |
 | DiscreteSafety.lean | 182 | Axiom-free safety theorem |

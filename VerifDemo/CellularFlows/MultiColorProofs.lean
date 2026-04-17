@@ -1082,4 +1082,310 @@ theorem mc_route_convergence (n nc : Nat) (targets : Fin nc → CellId2D n)
         rw [hr_eq, hr_val, distval_succ_fin]
         congr 1; omega
 
+/- =================================================================== -/
+/- 19. MC NEXT-CONVERGENCE (COROLLARY 7, 2D GRID)                      -/
+/- =================================================================== -/
+
+/-- If argminDist2D returns `none`, then every cell in the list has
+    infinite distance. -/
+private theorem argminDist2D_none_all_inf {n : Nat}
+    (dist : CellId2D n → DistVal) :
+    ∀ (cells : List (CellId2D n)),
+      argminDist2D dist cells = none →
+      ∀ j : CellId2D n, j ∈ cells → dist j = .inf := by
+  intro cells
+  induction cells with
+  | nil => intros _ j hj; simp at hj
+  | cons x xs ih =>
+    intro hnone j hj
+    cases xs with
+    | nil =>
+      have hjx : j = x := by simp at hj; exact hj
+      simp only [argminDist2D] at hnone
+      cases hdx : dist x with
+      | inf => rw [hjx]; exact hdx
+      | fin _ => rw [hdx] at hnone; cases hnone
+    | cons y ys =>
+      simp only [argminDist2D] at hnone
+      cases hrec : argminDist2D dist (y :: ys) with
+      | some w =>
+        simp only [hrec] at hnone
+        by_cases hdle : DistVal.dle (dist x) (dist w) = true
+        · rw [if_pos hdle] at hnone; cases hnone
+        · have hne : DistVal.dle (dist x) (dist w) = false := by
+            cases h : DistVal.dle (dist x) (dist w) with
+            | true => exact absurd h hdle
+            | false => rfl
+          rw [if_neg (by simp [hne])] at hnone; cases hnone
+      | none =>
+        simp only [hrec] at hnone
+        cases hdx : dist x with
+        | fin _ => rw [hdx] at hnone; cases hnone
+        | inf =>
+          rcases List.mem_cons.mp hj with hjx | hjrest
+          · rw [hjx]; exact hdx
+          · exact ih hrec j hjrest
+
+/-- If any cell j ∈ cells has finite dist, then argminDist2D is `some _`. -/
+private theorem argminDist2D_some_of_finite {n : Nat}
+    (dist : CellId2D n → DistVal) (cells : List (CellId2D n))
+    (j : CellId2D n) (m : Nat)
+    (hj : j ∈ cells) (hdj : dist j = .fin m) :
+    ∃ k, argminDist2D dist cells = some k := by
+  -- Contrapositive: if argminDist2D = none then all inf, contradicting hdj.
+  cases hr : argminDist2D dist cells with
+  | some k => exact ⟨k, rfl⟩
+  | none =>
+    have := argminDist2D_none_all_inf dist cells hr j hj
+    rw [this] at hdj; cases hdj
+
+/-- If argminDist2D returns some j, then j is in the cells list. -/
+private theorem argminDist2D_mem {n : Nat} (dist : CellId2D n → DistVal) :
+    ∀ (cells : List (CellId2D n)) (j : CellId2D n),
+      argminDist2D dist cells = some j → j ∈ cells := by
+  intro cells
+  induction cells with
+  | nil => intro j h; simp [argminDist2D] at h
+  | cons x xs ih =>
+    intro j hamin
+    cases xs with
+    | nil =>
+      -- Singleton: argminDist2D dist [x] depends on dist x.
+      simp only [argminDist2D] at hamin
+      cases hdx : dist x with
+      | inf => rw [hdx] at hamin; cases hamin
+      | fin mx =>
+        rw [hdx] at hamin
+        -- hamin : some x = some j
+        have hjx : j = x := (Option.some.inj hamin).symm
+        rw [hjx]; simp
+    | cons y ys =>
+      -- General: argminDist2D dist (x :: y :: ys)
+      simp only [argminDist2D] at hamin
+      cases hrec : argminDist2D dist (y :: ys) with
+      | none =>
+        rw [hrec] at hamin
+        cases hdx : dist x with
+        | inf => rw [hdx] at hamin; cases hamin
+        | fin mx =>
+          rw [hdx] at hamin
+          have hjx : j = x := (Option.some.inj hamin).symm
+          rw [hjx]; simp
+      | some w =>
+        -- Reduce the outer match now that hrec is known.
+        simp only [hrec] at hamin
+        -- hamin : (if DistVal.dle (dist x) (dist w) = true then some x else some w) = some j
+        by_cases hdle : DistVal.dle (dist x) (dist w) = true
+        · rw [if_pos hdle] at hamin
+          have hjx : j = x := (Option.some.inj hamin).symm
+          rw [hjx]; simp
+        · have hne : DistVal.dle (dist x) (dist w) = false := by
+            cases h : DistVal.dle (dist x) (dist w) with
+            | true => exact absurd h hdle
+            | false => rfl
+          rw [if_neg (by simp [hne])] at hamin
+          have hjw : j = w := (Option.some.inj hamin).symm
+          rw [hjw]
+          have hwmem := ih w hrec
+          exact List.mem_cons_of_mem x hwmem
+
+/-- If argminDist2D returns `some j`, then dist j ≤ dist k for every k in cells. -/
+private theorem argminDist2D_le {n : Nat} (dist : CellId2D n → DistVal) :
+    ∀ (cells : List (CellId2D n)) (j : CellId2D n),
+      argminDist2D dist cells = some j →
+      ∀ k : CellId2D n, k ∈ cells → DistVal.dle (dist j) (dist k) = true := by
+  intro cells
+  induction cells with
+  | nil => intro j h; simp [argminDist2D] at h
+  | cons x xs ih =>
+    intro j hamin k hk
+    cases xs with
+    | nil =>
+      -- Singleton: k = x.
+      have hkx : k = x := by simp at hk; exact hk
+      simp only [argminDist2D] at hamin
+      cases hdx : dist x with
+      | inf => rw [hdx] at hamin; cases hamin
+      | fin mx =>
+        rw [hdx] at hamin
+        have hjx : j = x := (Option.some.inj hamin).symm
+        rw [hjx, hkx]
+        simp [DistVal.dle, hdx]
+    | cons y ys =>
+      simp only [argminDist2D] at hamin
+      cases hrec : argminDist2D dist (y :: ys) with
+      | none =>
+        rw [hrec] at hamin
+        cases hdx : dist x with
+        | inf => rw [hdx] at hamin; cases hamin
+        | fin mx =>
+          rw [hdx] at hamin
+          have hjx : j = x := (Option.some.inj hamin).symm
+          rcases List.mem_cons.mp hk with hkx | hkys
+          · rw [hjx, hkx]; simp [DistVal.dle, hdx]
+          · -- k ∈ y :: ys; by hrec, dist k = .inf
+            have hk_inf := argminDist2D_none_all_inf dist (y :: ys) hrec k hkys
+            rw [hjx, hk_inf]
+            simp [DistVal.dle, hdx]
+      | some w =>
+        simp only [hrec] at hamin
+        by_cases hdle : DistVal.dle (dist x) (dist w) = true
+        · rw [if_pos hdle] at hamin
+          -- hamin : some x = some j, so j = x. Use eq instead of subst.
+          have hj_eq : j = x := (Option.some.inj hamin).symm
+          -- Manually case on hk without subst
+          rcases List.mem_cons.mp hk with hkx | hkys
+          · -- k = x. Goal: dle (dist j) (dist k) = true.
+            rw [hj_eq, hkx]
+            cases hdx' : dist x with
+            | inf => simp [DistVal.dle]
+            | fin _ => simp [DistVal.dle]
+          · -- k ∈ y :: ys; dle (dist w) (dist k) by IH, dle (dist x) (dist w) by hdle, transitivity.
+            rw [hj_eq]
+            have hwk := ih w hrec k hkys
+            -- Goal: dle (dist x) (dist k) = true from hdle and hwk by transitivity.
+            cases hdx' : dist x with
+            | inf =>
+              rw [hdx'] at hdle
+              cases hdw' : dist w with
+              | inf => rw [hdw'] at hwk; cases hdk' : dist k with
+                | inf => simp [DistVal.dle]
+                | fin _ => rw [hdk'] at hwk; simp [DistVal.dle] at hwk
+              | fin _ => rw [hdw'] at hdle; simp [DistVal.dle] at hdle
+            | fin mx =>
+              cases hdw' : dist w with
+              | inf =>
+                rw [hdw'] at hwk
+                cases hdk' : dist k with
+                | inf => simp [DistVal.dle]
+                | fin mk => rw [hdk'] at hwk; simp [DistVal.dle] at hwk
+              | fin mw =>
+                rw [hdx', hdw'] at hdle
+                cases hdk' : dist k with
+                | inf => simp [DistVal.dle]
+                | fin mk =>
+                  rw [hdw', hdk'] at hwk
+                  simp [DistVal.dle] at hdle hwk ⊢
+                  omega
+        · have hne : DistVal.dle (dist x) (dist w) = false := by
+            cases h : DistVal.dle (dist x) (dist w) with
+            | true => exact absurd h hdle
+            | false => rfl
+          rw [if_neg (by simp [hne])] at hamin
+          -- hamin : some w = some j ⟹ j = w.
+          have hj_eq : j = w := (Option.some.inj hamin).symm
+          rcases List.mem_cons.mp hk with hkx | hkys
+          · -- k = x; Goal: dle (dist j) (dist x) = true, with j = w.
+            rw [hj_eq, hkx]
+            -- Goal: dle (dist w) (dist x) = true, from ¬ dle (dist x) (dist w).
+            cases hdx' : dist x with
+            | inf =>
+              cases hdw' : dist w with
+              | inf => simp [DistVal.dle]
+              | fin _ => simp [DistVal.dle]
+            | fin mx =>
+              rw [hdx'] at hne
+              cases hdw' : dist w with
+              | inf => rw [hdw'] at hne; simp [DistVal.dle] at hne
+              | fin mw =>
+                rw [hdw'] at hne
+                simp [DistVal.dle] at hne
+                simp [DistVal.dle]; omega
+          · -- k ∈ y :: ys; IH applied to w gives the result, j = w.
+            rw [hj_eq]
+            exact ih w hrec k hkys
+
+/-- ★ Corollary 7 on 2D grid: after k rounds of failure-free multi-color
+    routing, the next-hop pointer for each color points to a neighbor at
+    manhattan distance one less than the current cell's distance to the
+    target.
+
+    Paper ref: Corollary 7, Section 4.3, generalized from 1D to N×N grid.
+
+    Proof strategy: by induction on k. At step k+1, the route phase sets
+    `s'.next c i = argminDist2D (s.dist c) (neighbors2D i)` (for non-target
+    non-failed i, with hff ensuring no failures). The closer neighbor j*
+    from `exists_closer_neighbor` has `s.dist c j* = fin (manhattan i target - 1)`
+    by the IH on mc_route_convergence. The dist lower bound ensures every
+    neighbor j has `dist j ≥ fin (manhattan j target) ≥ fin (manhattan i target - 1)`.
+    So argminDist2D returns some neighbor achieving the minimum dist, which
+    must be `fin (manhattan i target - 1)`, and by the lower bound the
+    returned cell j' has `manhattan j' target = manhattan i target - 1`. -/
+theorem mc_next_convergence (n nc : Nat) (targets : Fin nc → CellId2D n)
+    (hn : n > 0) :
+    ∀ k : Nat, ∀ s : MCState n nc,
+      ReachableInK (multiColorTS n nc targets) k s →
+      (∀ i : CellId2D n, s.failed i = false) →
+      ∀ c : Fin nc, ∀ i : CellId2D n,
+        i ≠ targets c →
+        manhattan i (targets c) ≤ k →
+        ∃ j : CellId2D n, s.next c i = some j ∧
+          j ∈ neighbors2D i ∧
+          manhattan j (targets c) + 1 = manhattan i (targets c) := by
+  intro k
+  induction k with
+  | zero =>
+    -- k = 0: manhattan i target ≤ 0 and i ≠ target is impossible.
+    intro s _hrk _hff c i hne hle
+    have hman : manhattan i (targets c) = 0 := by omega
+    exact absurd (manhattan_eq_zero_imp i (targets c) hman) hne
+  | succ k _ih =>
+    intro s' hrk hff c i hne hle
+    match hrk with
+    | .step _ s _ hrk_s hstep =>
+      obtain ⟨_hroute_target, _hroute_failed, hroute_bf,
+              _, _, _, _, _, _, _, _, _, _, _, hfail_frame⟩ := hstep
+      have hff_s : ∀ j : CellId2D n, s.failed j = false := by
+        intro j; rw [← hfail_frame j]; exact hff j
+      have hfail_i : s.failed i = false := hff_s i
+      have hbf := hroute_bf c i hne hfail_i
+      rw [nonFailedNeighbors2D_eq_neighbors2D s.failed i hff_s] at hbf
+      rw [hbf.2]
+      -- Existence of a closer neighbor:
+      have hman_pos : manhattan i (targets c) > 0 := by
+        rcases Nat.eq_zero_or_pos (manhattan i (targets c)) with h0 | hpos
+        · exact absurd (manhattan_eq_zero_imp i (targets c) h0) hne
+        · exact hpos
+      obtain ⟨j_close, hj_mem, hj_man⟩ :=
+        exists_closer_neighbor hn i (targets c) hne
+      -- By mc_route_convergence, closer neighbor has correct dist at step k.
+      have hj_le_k : manhattan j_close (targets c) ≤ k := by omega
+      have hj_dist : s.dist c j_close = .fin (manhattan j_close (targets c)) :=
+        mc_route_convergence n nc targets hn k s hrk_s hff_s c j_close hj_le_k
+      -- So argminDist2D is some.
+      obtain ⟨j', hj'⟩ :=
+        argminDist2D_some_of_finite (s.dist c) (neighbors2D i) j_close
+          (manhattan j_close (targets c)) hj_mem hj_dist
+      refine ⟨j', hj', ?_, ?_⟩
+      · exact argminDist2D_mem (s.dist c) (neighbors2D i) j' hj'
+      · -- Manhattan of j' + 1 = manhattan i.
+        -- Step lower bound on s (at step k): for any cell with finite dist,
+        -- m ≥ manhattan target.
+        have hlb := mcDistLowerBound_at_k n nc targets k s hrk_s
+        -- dist j' ≤ dist j_close = fin (manhattan j_close) = fin (manhattan i - 1)
+        have hle_close : DistVal.dle (s.dist c j') (s.dist c j_close) = true :=
+          argminDist2D_le (s.dist c) (neighbors2D i) j' hj' j_close hj_mem
+        -- dist j' is finite with value ≤ manhattan j_close.
+        rw [hj_dist] at hle_close
+        cases hdj' : s.dist c j' with
+        | inf =>
+          rw [hdj'] at hle_close
+          simp [DistVal.dle] at hle_close
+        | fin mj' =>
+          rw [hdj'] at hle_close
+          simp [DistVal.dle] at hle_close
+          -- hle_close : mj' ≤ manhattan j_close (targets c) = manhattan i - 1
+          have hle_man : mj' ≤ manhattan i (targets c) - 1 := by omega
+          -- Lower bound: mj' ≥ manhattan j' target
+          have hmj'_ge : mj' ≥ manhattan j' (targets c) := hlb c j' mj' hdj'
+          -- Triangle: manhattan j' target + 1 ≥ manhattan i target, i.e.
+          -- manhattan j' target ≥ manhattan i target - 1.
+          have hj'_neigh : areNeighbors2D i j' :=
+            neighbors2D_mem_areNeighbors i j'
+              (argminDist2D_mem (s.dist c) (neighbors2D i) j' hj')
+          have htri : manhattan j' (targets c) + 1 ≥ manhattan i (targets c) :=
+            manhattan_neighbor_triangle i j' (targets c) hj'_neigh
+          -- Combined: manhattan j' + 1 = manhattan i.
+          omega
+
 end CellularFlows
