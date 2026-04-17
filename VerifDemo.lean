@@ -27,6 +27,7 @@ import VerifDemo.CellularFlows.DiscreteSafety
 import VerifDemo.CellularFlows.Stabilization
 import VerifDemo.CellularFlows.Stabilization2D
 import VerifDemo.CellularFlows.Topology
+import VerifDemo.CellularFlows.ContinuousModel
 import VerifDemo.CellularFlows.Complete
 import VerifDemo.ProgramVerif.Imp
 import VerifDemo.ProgramVerif.Examples

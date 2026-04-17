@@ -78,18 +78,30 @@
     Assumption 1 (projection)   assumption1_projection_property   Assumptions
     Assumption 2 (transfer)     assumption2_transfer_feasibility  Assumptions
 
+  CONTINUOUS MODEL (Section 2.3) — bridges discrete protocol to R² entities
+    MetricPoint typeclass       MetricPoint                        ContinuousModel
+    ContinuousEntity / state    ContinuousEntity / ContinuousMCState ContinuousModel
+    Multi-color discrete safety MCDiscreteSafe                     ContinuousModel
+                                mcDiscreteSafe_invariant           ContinuousModel
+    ★ Theorem 1 (continuous)    continuous_theorem_1               ContinuousModel
+                                continuous_theorem_1_reachable     ContinuousModel
+    Geometric bridge (axiom)    continuous_safety_bridge           ContinuousModel
+    Grid/Manhattan instance     GridPos (Mathlib-free example)     ContinuousModel
+
   FINITE INSTANCES (NuXMV)
     3-cell single-color line    Cellular3TS_inv1/2/3_proved        Cellular3Proofs
     2x2 grid with 2 colors      Cellular_mc_2x2TS_inv1..4_proved   CellularMC2x2Proofs
                                 (lock mutex, dist targets, bounds)
 
-  AXIOMS (7 total, 3 superseded; 4 active — 2 fairness + 2 documentation)
+  AXIOMS (8 total, 3 superseded; 5 active — 2 fairness + 2 docs + 1 geometric bridge)
     ━━━ Active — fairness (2) ━━━
     fair_execution_ranking_decreases  (Assumptions 3-4, Lemma 12)  CellFlowsProofs
     lock_fairness_general             (Assumption 4, Lemma 11)     MultiColorProofs
     ━━━ Active — paper documentation (2, not proof-load-bearing) ━━━
     assumption1_projection_property   (Assumption 1, Section 2.5)  Assumptions
     assumption2_transfer_feasibility  (Assumption 2, Section 2.5)  Assumptions
+    ━━━ Active — geometric bridge (1) ━━━
+    continuous_safety_bridge          (Theorem 1 discrete→continuous) ContinuousModel
     ━━━ Superseded (3) — kept for documentation ━━━
     GapSafe, gapSafe_init, gapPreservedByStep  (by safety_discrete) CellFlowsProofs
 

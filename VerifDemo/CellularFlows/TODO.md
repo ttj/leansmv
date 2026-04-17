@@ -1,10 +1,12 @@
 # Cellular Flows Formalization — Final Status (Phase 2)
 
 Lean 4 formalization of "Safe and Stabilizing Distributed Multi-Path Cellular
-Flows" (Johnson & Mitra, TCS 2015). **4,672 lines, 160+ theorems, zero `sorry`**,
-33 build jobs. All paper results covered in both 1D and 2D, with explicit
-paper-notation definitions for NEPrev, SC, lcs, V_E/E_E, V_R/E_R, and
-Assumptions 1-2 stated as documentation.
+Flows" (Johnson & Mitra, TCS 2015). **5,643 lines, 170+ theorems, zero `sorry`**,
+36 build jobs. All paper results covered in both 1D and 2D, with explicit
+paper-notation definitions for NEPrev, SC, lcs, V_E/E_E, V_R/E_R,
+Assumptions 1-2 stated as documentation, parametric topology for arbitrary
+tessellations (Topology.lean), and a continuous R²-style position model
+(ContinuousModel.lean) capturing the paper's continuous Theorem 1.
 
 See the correspondence table in `Defs.lean` for the full paper-to-Lean mapping.
 
