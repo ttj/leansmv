@@ -11,7 +11,7 @@
   The system models a partitioned planar environment where cells coordinate
   via local signaling to route entities from sources to targets. We work
   with a 1D line of N cells (target at cell 0) as the base case; the 2D
-  grid generalization follows the same pattern.
+  grid generalization (Grid.lean) follows the same pattern.
 
   KEY ABSTRACTION: the paper's continuous entity positions (in R²) are
   abstracted to discrete entity counts per cell. The discrete protocol
@@ -19,6 +19,59 @@
   are proved exactly; the bridge from discrete protocol correctness to
   continuous safety (Theorem 1) relies on geometric arguments about
   transfer/safety regions that we state as axioms referencing the paper.
+
+  ══════════════════════════════════════════════════════════════════════
+  PAPER-TO-LEAN CORRESPONDENCE TABLE
+  ══════════════════════════════════════════════════════════════════════
+
+  Paper Result             Lean Theorem                      File
+  ─────────────────────────────────────────────────────────────────────
+  SAFETY (Section 4.2)
+    Invariant 1 (containment)   GapSafe (axiom, superseded)       CellFlowsProofs
+                                safety_discrete (axiom-free)      DiscreteSafety
+    Invariant 2 (disjoint)      entity_bounded_by_transfer        CellFlowsProofs
+    Invariant 3 (single color)  invariant3_discrete               CellFlowsProofs
+    Lemma 4 (gap preserved)     gapPreservedByStep (axiom)        CellFlowsProofs
+                                (superseded by DiscreteSafety)
+    Lemma 5 (no signal cycles)  noSignalCycle2_invariant           CellFlowsProofs
+    ★ Theorem 1 (Safety)        safety_discrete (axiom-free)      DiscreteSafety
+
+  ROUTING (Section 4.3)
+    Lemma 6 (convergence)       route_convergence                 RouteProofs
+    Corollary 7 (next conv.)    next_convergence                  RouteProofs
+    distLowerBound              distLowerBound_invariant           RouteProofs
+    next_left_or_none           next_left_or_none                 RouteProofs
+    noMutualNextHop             noMutualNextHop_invariant          CellFlowsProofs
+
+  MULTI-COLOR (Section 4.4)
+    Corollary 8 (path stable)   route_stable_implies_all_stable   MultiColorProofs
+    Corollary 9 (pint stable)   (included in Cor 8 theorem)       MultiColorProofs
+    Lemma 10 (lock gate)        signalRespectsLock_invariant       MultiColorProofs
+    Lemma 11 (lock acquisition) lock_acquisition                  MultiColorProofs
+    Lock mutual exclusion       lockMutex_invariant                MultiColorProofs
+    Per-color dist lower bound  mcDistLowerBound_invariant         MultiColorProofs
+
+  LIVENESS (Section 4.5)
+    Lemma 12 (fair signaling)   fair_execution_ranking_decreases  CellFlowsProofs
+                                (axiom — fairness assumption)
+    ★ Theorem 2 (Liveness)      liveness_theorem                  CellFlowsProofs
+
+  FINITE INSTANCE (NuXMV)
+    No signal cycles (3-cell)   Cellular3TS_inv1_proved            Cellular3Proofs
+    Target dist=0 (3-cell)      Cellular3TS_inv2_proved            Cellular3Proofs
+    Dist bounded (3-cell)       Cellular3TS_inv3_proved            Cellular3Proofs
+
+  AXIOMS (6 total, 3 superseded by DiscreteSafety.lean)
+    GapSafe                     (superseded)                      CellFlowsProofs
+    gapSafe_init                (superseded)                      CellFlowsProofs
+    gapPreservedByStep          (superseded)                      CellFlowsProofs
+    fair_execution_ranking_decreases  (Assumptions 3-4)           CellFlowsProofs
+    manhattan_neighbor_triangle (geometric, provable)             MultiColorProofs
+    neighbors2D_mem_areNeighbors (structural, provable)           MultiColorProofs
+    path_stabilization          (gossip convergence, Cor 8)       MultiColorProofs
+    pint_stabilization          (gossip convergence, Cor 9)       MultiColorProofs
+    lock_fairness_general       (token fairness, Assumption 4)    MultiColorProofs
+  ══════════════════════════════════════════════════════════════════════
 -/
 import VerifDemo.TransitionSystem
 

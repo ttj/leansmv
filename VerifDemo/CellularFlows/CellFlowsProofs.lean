@@ -467,7 +467,14 @@ theorem entity_gain_requires_signal (n : Nat) :
 
 /-- The continuous safety property: all entities on the same cell
     maintain minimum separation r_s. Abstracted as an opaque predicate
-    since we do not model continuous positions in R². -/
+    since we do not model continuous positions in R².
+
+    NOTE: These 3 axioms (GapSafe, gapSafe_init, gapPreservedByStep)
+    are SUPERSEDED by the axiom-free formulation in DiscreteSafety.lean,
+    which proves `safety_discrete` without any axioms by defining safety
+    as the conjunction of noSignalCycle2 ∧ cfSignalValid ∧ singleSourcePerRound.
+    The paper's Theorem 1 proof (Section 4.2) shows these discrete properties
+    imply continuous safety given Assumptions 1-2 on cell geometry. -/
 axiom GapSafe {n : Nat} : CellFlowState n → Prop
 
 /-- Axiom: initial states satisfy the gap property.

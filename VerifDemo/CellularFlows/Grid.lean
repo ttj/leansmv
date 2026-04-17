@@ -6,8 +6,18 @@
   cellular flows protocol. Generalizes the 1D line topology in Defs.lean
   to an N×N grid with 4-connected neighbors.
 
-  Paper reference: Section 2.1 (Cells and partitioning), Section 2.2
-  (Neighbors and communications).
+  Paper: T.T. Johnson and S. Mitra, "Safe and Stabilizing Distributed
+  Multi-Path Cellular Flows," TCS 579 (2015) 9–32.
+
+  Section 2.1 — Cells and partitioning: N convex polygonal cells
+    partitioning a planar environment. Here specialized to an N×N
+    square grid (unit square tessellation, the paper's primary example).
+  Section 2.2 — Neighbors and communications: Cell i is a neighbor of
+    cell j iff they share a common side. On the square grid, this gives
+    4-connected neighbors (up, down, left, right).
+  Section 2.3 — Manhattan distance ρ_c(x, i) = shortest path through
+    non-faulty cells to target. On a grid without failures, this equals
+    the L1 (Manhattan) metric.
 -/
 import VerifDemo.CellularFlows.Defs
 
