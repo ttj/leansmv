@@ -26,6 +26,8 @@ import VerifDemo.CellularFlows.PaperNotation
 import VerifDemo.CellularFlows.DiscreteSafety
 import VerifDemo.CellularFlows.Stabilization
 import VerifDemo.CellularFlows.Stabilization2D
+import VerifDemo.CellularFlows.Topology
+import VerifDemo.CellularFlows.Complete
 import VerifDemo.ProgramVerif.Imp
 import VerifDemo.ProgramVerif.Examples
 import VerifDemo.ProgramVerif.Sort
