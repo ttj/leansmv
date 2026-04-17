@@ -1,71 +1,107 @@
-# Cellular Flows Formalization — Final Status
+# Cellular Flows Formalization — Status & Extensions
 
 Lean 4 formalization of "Safe and Stabilizing Distributed Multi-Path Cellular Flows"
-(Johnson & Mitra, TCS 2015). 2,655 lines of Lean, zero `sorry`.
+(Johnson & Mitra, TCS 2015). 2,700+ lines of Lean, zero `sorry`, 26 build jobs.
 
-## Paper Results Coverage
+See the correspondence table in `Defs.lean` for the full paper-to-Lean mapping.
 
-### Single-Color Protocol (1D line, parametric in N)
+## Current status
 
-| Paper Result | Lean Theorem | Status |
+### Proved (no axioms needed)
+- Lemma 5 (no signal cycles) — `noSignalCycle2_invariant`
+- Lemma 6 (route convergence, 1D) — `route_convergence`
+- Corollary 7 (next convergence, 1D) — `next_convergence`
+- Invariant 2 (entity conservation, per-cell) — `entity_bounded_by_transfer`
+- Invariant 3 (single color) — `invariant3_discrete`
+- **Theorem 1 (safety, axiom-free)** — `safety_discrete` in DiscreteSafety.lean
+- Lock mutual exclusion — `lockMutex_invariant`
+- Signal respects lock (Lemma 10) — `signalRespectsLock_invariant`
+- Per-color dist lower bound (2D) — `mcDistLowerBound_invariant`
+- + 30 supporting lemmas
+
+### Proved (conditional on axioms)
+- **Theorem 2 (liveness)** — `liveness_theorem` (1 fairness axiom)
+- Lemma 11 (lock acquisition) — `lock_acquisition` (1 fairness axiom)
+- Corollaries 8-9 (path/pint stable) — `route_stable_implies_all_stable` (2 gossip axioms)
+
+### Axioms (9 total; 3 superseded)
+| Axiom | Status | Effort to eliminate |
 |---|---|---|
-| Lemma 6 (route convergence) | `route_convergence` | **Proved** (k-induction) |
-| Corollary 7 (next converges) | `next_convergence` | **Proved** |
-| Lemma 5 (no signal cycles) | `noSignalCycle2_invariant` | **Proved** (parametric) |
-| Invariant 2 (entity disjoint) | `entity_bounded_by_transfer` | **Proved** (per-cell) |
-| Invariant 3 (single color) | `invariant3_discrete` | **Proved** (discrete) |
-| **Theorem 1 (safety)** | `safety_discrete` | **Proved** (axiom-free) |
-| **Theorem 2 (liveness)** | `liveness_theorem` | **Proved** (fairness axiom) |
+| `GapSafe` | **Superseded** by DiscreteSafety.lean | — |
+| `gapSafe_init` | **Superseded** by DiscreteSafety.lean | — |
+| `gapPreservedByStep` | **Superseded** by DiscreteSafety.lean | — |
+| `manhattan_neighbor_triangle` | Active (provable) | Low — case analysis on Fin coordinates |
+| `neighbors2D_mem_areNeighbors` | Active (provable) | Low — unfold neighbors2D definition |
+| `path_stabilization` | Active | Medium — needs gossip round modeling |
+| `pint_stabilization` | Active | Medium — follows from path_stabilization |
+| `fair_execution_ranking_decreases` | Active (assumption) | High — needs explicit token scheduler |
+| `lock_fairness_general` | Active (assumption) | High — needs explicit token scheduler |
 
-### Multi-Color Protocol (2D grid, parametric in N and nc)
+**Active axioms: 6 (2 provable geometric, 2 gossip convergence, 2 fairness assumptions)**
 
-| Paper Result | Lean Theorem | Status |
-|---|---|---|
-| Per-color dist lower bound | `mcDistLowerBound_invariant` | **Proved** (inductive) |
-| Per-color target correct | `mcTargetCorrect_invariant` | **Proved** |
-| Lock mutual exclusion | `lockMutex_invariant` | **Proved** |
-| Lock requires intersection | `lockRequiresIntersection_invariant` | **Proved** |
-| Signal respects lock (Lemma 10) | `signalRespectsLock_invariant` | **Proved** |
-| Color consistency | `colorConsistent_invariant` | **Proved** |
-| Color preserved on transfer | `colorPreserved_step` | **Proved** |
-| Signal validity (2D) | `mcSignalValid_invariant` | **Proved** |
-| Corollaries 8-9 (path/pint stable) | `route_stable_implies_all_stable` | **Proved** (axioms for gossip) |
-| **Lemma 11 (lock acquisition)** | `lock_acquisition` | **Proved** (fairness axiom) |
-| Combined multi-color safety | `multiColor_safety` | **Proved** |
+## Extensions — remaining gaps
 
-### Finite Instance (3-cell NuXMV)
+### E1: Prove the two geometric axioms (LOW effort)
+- `manhattan_neighbor_triangle`: for 4-connected neighbors on a grid, Manhattan
+  distance changes by exactly 1. Proof: case split on which direction the neighbor
+  is (up/down/left/right), each changes one coordinate by 1.
+- `neighbors2D_mem_areNeighbors`: members of `neighbors2D i` satisfy `areNeighbors2D`.
+  Proof: unfold `neighbors2D`, `upNeighbor`, etc., show each branch produces a
+  valid neighbor pair.
+- **Result**: reduces active axiom count from 6 to 4.
+- **File**: `MultiColorProofs.lean`
 
-| Property | Theorem | Status |
-|---|---|---|
-| No signal cycles | `Cellular3TS_inv1_proved` | **Proved** |
-| Target dist = 0 | `Cellular3TS_inv2_proved` | **Proved** |
-| Dist bounded | `Cellular3TS_inv3_proved` | **Proved** |
+### E2: 2D route convergence (MEDIUM effort)
+- Currently `route_convergence` is only for the 1D line (`routeFFTS`).
+  `mcDistLowerBound` proves the lower bound on 2D but not full convergence.
+- **What's needed**: After k rounds on the 2D grid, cells at Manhattan distance ≤ k
+  from target have `dist[c][i] = .fin (manhattan i (targets c))`.
+- **Approach**: Same k-induction as 1D, using `manhattan_neighbor_triangle` (once
+  proved per E1) to show `minDist2D` over neighbors ≤ manhattan(i,target)-1.
+- **File**: `MultiColorProofs.lean`
 
-## Axiom Inventory
+### E3: Multi-color Move phase entity accounting (MEDIUM effort)
+- `multiColorTS` has `True` placeholder for non-target entity accounting (line 153).
+- **What's needed**: Add `movedOut`/`movedIn` helpers for `MCState` (analogous to
+  `CellFlows.lean:45-59`) and replace `True` with exact accounting:
+  `entities' i = entities i - movedOut + movedIn`.
+- **Result**: enables proving multi-color entity conservation.
+- **Files**: `MultiColor.lean` (extend TS), `MultiColorProofs.lean` (prove conservation)
 
-| Axiom | Purpose | Paper Reference | Could prove? |
+### E4: Entity graph definitions (LOW effort, cosmetic)
+- Paper defines `G_E(x,c)`, `V_E(x,c)`, `E_E(x,c)` (entity graph for color c)
+  and `SC(x,c)`, `CSC(x,c)` (shared/color-shared cells) explicitly in Section 3.3.2.
+- Currently implicit in `path`/`pint` variables.
+- **What's needed**: Add explicit Lean definitions for these predicates (no new proofs,
+  just named definitions matching the paper).
+- **File**: `MultiColor.lean` or new `EntityGraph.lean`
+
+### E5: Target-connected predicate (LOW effort, cosmetic)
+- Paper defines `TC(x,c) = {i ∈ NF(x) | ρ_c(x,i) < ∞}` — cells reachable to target.
+- Our theorems quantify over all cells (more general).
+- **What's needed**: Define `targetConnected` predicate. Optionally restate Theorems 1-2
+  restricted to TC for exact paper correspondence.
+- **File**: `MultiColor.lean` or `CellFlows.lean`
+
+### E6: Signal subroutine detail (LOW priority)
+- Paper Fig. 10 computes `cn` (color set from predecessors), `NEPrev` (nonempty
+  predecessors for chosen color), uses `token` for round-robin fairness.
+- Our model constrains signal structurally but doesn't model the explicit computation.
+- **Impact**: proofs are valid on the structural constraints; adding computation detail
+  would make the model more faithful but wouldn't change proved properties.
+- **Recommendation**: leave as-is unless needed for a specific theorem.
+
+## File inventory
+
+| File | Lines | Theorems | Axioms |
 |---|---|---|---|
-| `fair_execution_ranking_decreases` | Token scheduling fairness | Assumptions 3-4 | Would need explicit token model |
-| `lock_fairness_general` | Lock cycling fairness | Assumption 4 | Same — token round-robin |
-| `manhattan_neighbor_triangle` | Manhattan metric on grid | Geometric fact | Yes (tedious case analysis) |
-| `neighbors2D_mem_areNeighbors` | Neighbor list membership | Structural fact | Yes (tedious unfolding) |
-| `path_stabilization` | Path gossip convergence | Corollary 8 | Would need gossip model |
-| `pint_stabilization` | pint convergence | Corollary 9 | Follows from path |
-
-**3 geometric axioms from original CellFlowsProofs.lean** (`GapSafe`, `gapSafe_init`, `gapPreservedByStep`) 
-are **superseded** by the axiom-free `DiscreteSafety.lean`.
-
-## File Inventory
-
-| File | Lines | Purpose |
-|---|---|---|
-| Defs.lean | 112 | DistVal, 1D topology |
-| Grid.lean | 81 | 2D grid topology |
-| Route.lean | 72 | Route-only TS (1D) |
-| RouteProofs.lean | 462 | Lemma 6, Cor 7, distLowerBound |
-| CellFlows.lean | 154 | Full single-color TS |
-| CellFlowsProofs.lean | 711 | Theorem 1 & 2, Lemma 5, entity flow |
-| DiscreteSafety.lean | 182 | Axiom-free safety |
-| MultiColor.lean | 167 | Multi-color TS (2D grid) |
-| MultiColorProofs.lean | 714 | Lock mutex, Lemma 10-11, Cor 8-9 |
-| **Total** | **2,655** | |
+| Defs.lean | 158 | — | — |
+| Grid.lean | 89 | — | — |
+| Route.lean | 72 | — | — |
+| RouteProofs.lean | 462 | 31 | — |
+| CellFlows.lean | 154 | — | — |
+| CellFlowsProofs.lean | 718 | 25 | 4 (3 superseded) |
+| DiscreteSafety.lean | 182 | 8 | — |
+| MultiColor.lean | 167 | — | — |
+| MultiColorProofs.lean | 714 | 20 | 5 |
+| **Total** | **~2,716** | **84** | **9 (3 superseded)** |
