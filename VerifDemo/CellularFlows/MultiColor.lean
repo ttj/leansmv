@@ -136,14 +136,23 @@ def multiColorTS (n nc : Nat) (targets : Fin nc → CellId2D n) :
       s'.dist c i = (minDist2D (s.dist c) nbrs).succ ∧
       s'.next c i = argminDist2D (s.dist c) nbrs) ∧
     -- === 2. PATH phase (gossip-based, Fig. 9 lines 1-7) ===
-    -- pint[c][i] = true only if path of color c and some other color d
-    -- both include cell i (simplified structural constraint)
-    (∀ c : Fin nc, ∀ i : CellId2D n, s'.pint c i = true →
-      ∃ d : Fin nc, d ≠ c ∧
-        i ∈ s'.path c i ∧ i ∈ s'.path d i) ∧
-    -- needsLock[c][i] = true only if pint[c][i] = true
-    (∀ c : Fin nc, ∀ i : CellId2D n, s'.needsLock c i = true →
-      s'.pint c i = true) ∧
+    -- Gossip-based path update. path[c][i] accumulates (as a MEMBERSHIP
+    -- predicate): cell i itself (when colored c in the previous state),
+    -- and all cells reachable via neighbors' previous paths for color c.
+    -- This is the simplified deterministic gossip rule, iff-constrained
+    -- so path membership is fully determined by the previous state.
+    (∀ c : Fin nc, ∀ i : CellId2D n, ∀ x : CellId2D n,
+      x ∈ s'.path c i ↔
+        (x = i ∧ s.color i = some c) ∨
+        (∃ j : CellId2D n, j ∈ neighbors2D i ∧ x ∈ s.path c j)) ∧
+    -- pint[c][i] is derived from s'.path: true iff cell i lies on paths
+    -- of color c AND of some other color d at its own cell.
+    (∀ c : Fin nc, ∀ i : CellId2D n,
+      s'.pint c i = true ↔
+        (i ∈ s'.path c i ∧ ∃ d : Fin nc, d ≠ c ∧ i ∈ s'.path d i)) ∧
+    -- needsLock[c][i] is derived from pint: true iff pint is true.
+    (∀ c : Fin nc, ∀ i : CellId2D n,
+      s'.needsLock c i = true ↔ s'.pint c i = true) ∧
     -- === 3. LOCK phase (mutual exclusion, Fig. 9 lines 8-17) ===
     -- Lock only granted at cells that need locks
     (∀ c : Fin nc, ∀ i : CellId2D n, s'.lock c i = true →

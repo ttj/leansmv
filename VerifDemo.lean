@@ -21,6 +21,7 @@ import VerifDemo.CellularFlows.Grid
 import VerifDemo.CellularFlows.MultiColor
 import VerifDemo.CellularFlows.MultiColorProofs
 import VerifDemo.CellularFlows.DiscreteSafety
+import VerifDemo.CellularFlows.Stabilization
 import VerifDemo.ProgramVerif.Imp
 import VerifDemo.ProgramVerif.Examples
 import VerifDemo.ProgramVerif.Sort

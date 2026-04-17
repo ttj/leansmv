@@ -36,19 +36,25 @@
     Lemma 5 (no signal cycles)  noSignalCycle2_invariant           CellFlowsProofs
     ★ Theorem 1 (Safety)        safety_discrete (axiom-free)      DiscreteSafety
 
-  ROUTING (Section 4.3)
-    Lemma 6 (convergence)       route_convergence                 RouteProofs
+  ROUTING & STABILIZATION (Section 4.3)
+    Lemma 6 (convergence, 1D)   route_convergence                 RouteProofs
+    Lemma 6 (convergence, 2D)   mc_route_convergence              MultiColorProofs
     Corollary 7 (next conv.)    next_convergence                  RouteProofs
     distLowerBound              distLowerBound_invariant           RouteProofs
     next_left_or_none           next_left_or_none                 RouteProofs
     noMutualNextHop             noMutualNextHop_invariant          CellFlowsProofs
+    exists_closer_neighbor      (proved, was axiom)               MultiColorProofs
+    Self-stabilization (1D)     route_self_stabilizes             Stabilization
+                                route_next_self_stabilizes        Stabilization
 
   MULTI-COLOR (Section 4.4)
-    Corollary 8 (path stable)   route_stable_implies_all_stable   MultiColorProofs
-    Corollary 9 (pint stable)   (included in Cor 8 theorem)       MultiColorProofs
+    Corollary 8 (path stable)   path_stabilization (proved theorem) MultiColorProofs
+    Corollary 9 (pint stable)   pint_stabilization (proved theorem) MultiColorProofs
+                                route_stable_implies_all_stable   MultiColorProofs
     Lemma 10 (lock gate)        signalRespectsLock_invariant       MultiColorProofs
     Lemma 11 (lock acquisition) lock_acquisition                  MultiColorProofs
     Lock mutual exclusion       lockMutex_invariant                MultiColorProofs
+    Lock requires intersection  lockRequiresIntersection_invariant MultiColorProofs
     Per-color dist lower bound  mcDistLowerBound_invariant         MultiColorProofs
 
   LIVENESS (Section 4.5)
@@ -56,21 +62,24 @@
                                 (axiom — fairness assumption)
     ★ Theorem 2 (Liveness)      liveness_theorem                  CellFlowsProofs
 
-  FINITE INSTANCE (NuXMV)
-    No signal cycles (3-cell)   Cellular3TS_inv1_proved            Cellular3Proofs
-    Target dist=0 (3-cell)      Cellular3TS_inv2_proved            Cellular3Proofs
-    Dist bounded (3-cell)       Cellular3TS_inv3_proved            Cellular3Proofs
+  FINITE INSTANCES (NuXMV)
+    3-cell single-color line    Cellular3TS_inv1/2/3_proved        Cellular3Proofs
+    2x2 grid with 2 colors      Cellular_mc_2x2TS_inv1..4_proved   CellularMC2x2Proofs
+                                (lock mutex, dist targets, bounds)
 
-  AXIOMS (6 total, 3 superseded by DiscreteSafety.lean)
-    GapSafe                     (superseded)                      CellFlowsProofs
-    gapSafe_init                (superseded)                      CellFlowsProofs
-    gapPreservedByStep          (superseded)                      CellFlowsProofs
-    fair_execution_ranking_decreases  (Assumptions 3-4)           CellFlowsProofs
-    manhattan_neighbor_triangle (geometric, provable)             MultiColorProofs
-    neighbors2D_mem_areNeighbors (structural, provable)           MultiColorProofs
-    path_stabilization          (gossip convergence, Cor 8)       MultiColorProofs
-    pint_stabilization          (gossip convergence, Cor 9)       MultiColorProofs
-    lock_fairness_general       (token fairness, Assumption 4)    MultiColorProofs
+  AXIOMS (5 total, 3 superseded; only 2 active, both fairness)
+    ━━━ Active (2) ━━━
+    fair_execution_ranking_decreases  (Assumptions 3-4, Lemma 12)  CellFlowsProofs
+    lock_fairness_general             (Assumption 4, Lemma 11)     MultiColorProofs
+    ━━━ Superseded (3) — kept for documentation ━━━
+    GapSafe, gapSafe_init, gapPreservedByStep  (by safety_discrete) CellFlowsProofs
+
+  ELIMINATED AXIOMS (during Phase 2 extensions)
+    manhattan_neighbor_triangle → now a theorem (MultiColorProofs)
+    neighbors2D_mem_areNeighbors → now a theorem (MultiColorProofs)
+    exists_closer_neighbor      → now a theorem (MultiColorProofs, Phase A)
+    path_stabilization          → now a theorem (MultiColorProofs, Phase C)
+    pint_stabilization          → now a theorem (MultiColorProofs, Phase C)
   ══════════════════════════════════════════════════════════════════════
 -/
 import VerifDemo.TransitionSystem

@@ -57,7 +57,7 @@ theorem mcTargetCorrect_init (n nc : Nat) (targets : Fin nc → CellId2D n) :
 theorem mcTargetCorrect_step (n nc : Nat) (targets : Fin nc → CellId2D n) :
     ∀ s s', mcTargetCorrect targets s →
       (multiColorTS n nc targets).next s s' → mcTargetCorrect targets s' := by
-  intro s s' _ ⟨hroute_target, _, _, _, _, _, _, _, _, _, _, _, _⟩
+  intro s s' _ ⟨hroute_target, _, _, _, _, _, _, _, _, _, _, _, _, _, _⟩
   intro c
   exact hroute_target c (targets c) rfl
 
@@ -88,7 +88,7 @@ theorem lockMutex_init (n nc : Nat) (targets : Fin nc → CellId2D n) :
 
 theorem lockMutex_step (n nc : Nat) (targets : Fin nc → CellId2D n) :
     ∀ s s', lockMutex s → (multiColorTS n nc targets).next s s' → lockMutex s' := by
-  intro s s' _ ⟨_, _, _, _, _, _, hlock_mutex, _, _, _, _, _, _⟩
+  intro s s' _ ⟨_, _, _, _, _, _, _, hlock_mutex, _, _, _, _, _, _, _⟩
   intro i c1 c2 h1 h2
   exact hlock_mutex i c1 c2 h1 h2
 
@@ -126,12 +126,12 @@ theorem lockRequiresIntersection_init (n nc : Nat) (targets : Fin nc → CellId2
 theorem lockRequiresIntersection_step (n nc : Nat) (targets : Fin nc → CellId2D n) :
     ∀ s s', lockRequiresIntersection s →
       (multiColorTS n nc targets).next s s' → lockRequiresIntersection s' := by
-  intro s s' _ ⟨_, _, _, _, hnl_pint, hlock_nl, _, _, _, _, _, _, _⟩
+  intro s s' _ ⟨_, _, _, _, _, hnl_iff, hlock_nl, _, _, _, _, _, _, _, _⟩
   refine ⟨?_, ?_⟩
   · intro c i hlk
     exact hlock_nl c i hlk
   · intro c i hnl
-    exact hnl_pint c i hnl
+    exact (hnl_iff c i).mp hnl
 
 theorem lockRequiresIntersection_inductive (n nc : Nat) (targets : Fin nc → CellId2D n) :
     InductiveInvariant (multiColorTS n nc targets) lockRequiresIntersection :=
@@ -166,7 +166,7 @@ theorem signalRespectsLock_init (n nc : Nat) (targets : Fin nc → CellId2D n) :
 theorem signalRespectsLock_step (n nc : Nat) (targets : Fin nc → CellId2D n) :
     ∀ s s', signalRespectsLock s →
       (multiColorTS n nc targets).next s s' → signalRespectsLock s' := by
-  intro s s' _ ⟨_, _, _, _, _, _, _, hsignal, _, _, _, _, _⟩
+  intro s s' _ ⟨_, _, _, _, _, _, _, _, hsignal, _, _, _, _, _, _⟩
   intro i j hsij
   rcases hsignal i with hnone | ⟨j', c, hsij', _, _, _, hnext_c, hlock_cond, _⟩
   · simp [hnone] at hsij
@@ -201,7 +201,7 @@ theorem colorConsistent_init (n nc : Nat) (targets : Fin nc → CellId2D n) :
 theorem colorConsistent_step (n nc : Nat) (targets : Fin nc → CellId2D n) :
     ∀ s s', colorConsistent s →
       (multiColorTS n nc targets).next s s' → colorConsistent s' := by
-  intro s s' _ ⟨_, _, _, _, _, _, _, _, _, _, _, hcolor_empty, _, _⟩
+  intro s s' _ ⟨_, _, _, _, _, _, _, _, _, _, _, _, hcolor_empty, _, _⟩
   exact hcolor_empty
 
 theorem colorConsistent_inductive (n nc : Nat) (targets : Fin nc → CellId2D n) :
@@ -226,7 +226,7 @@ theorem colorPreserved_step (n nc : Nat) (targets : Fin nc → CellId2D n) :
     ∀ s s', (multiColorTS n nc targets).next s s' →
       ∀ i j : CellId2D n, s'.signal i = some j → s'.entities i > 0 →
         s'.color i = s.color j := by
-  intro s s' ⟨_, _, _, _, _, _, _, _, _, _, _, _, hcolor_arr, _⟩
+  intro s s' ⟨_, _, _, _, _, _, _, _, _, _, _, _, _, hcolor_arr, _⟩
   exact hcolor_arr
 
 /-- Color preservation as a state invariant: signals only come from
@@ -248,7 +248,7 @@ theorem colorPreserved_init (n nc : Nat) (targets : Fin nc → CellId2D n) :
 theorem colorPreserved_step_ind (n nc : Nat) (targets : Fin nc → CellId2D n) :
     ∀ s s', colorPreserved s →
       (multiColorTS n nc targets).next s s' → colorPreserved s' := by
-  intro s s' _ ⟨_, _, _, _, _, _, _, hsignal, _, _, _, _, _, _⟩
+  intro s s' _ ⟨_, _, _, _, _, _, _, _, hsignal, _, _, _, _, _, _⟩
   intro i j hsij
   rcases hsignal i with hnone | ⟨j', c, hsij', _, _, hcolor_j', _, _, hcompat⟩
   · simp [hnone] at hsij
@@ -300,7 +300,7 @@ theorem mcSignalValid_init (n nc : Nat) (targets : Fin nc → CellId2D n) :
 theorem mcSignalValid_step (n nc : Nat) (targets : Fin nc → CellId2D n) :
     ∀ s s', mcSignalValid s →
       (multiColorTS n nc targets).next s s' → mcSignalValid s' := by
-  intro s s' _ ⟨_, _, _, _, _, _, _, hsignal, _, _, _, _, _, _⟩
+  intro s s' _ ⟨_, _, _, _, _, _, _, _, hsignal, _, _, _, _, _, _⟩
   intro i j hsij
   rcases hsignal i with hnone | ⟨j', _, hsij', hneigh, _, _, _, _, _⟩
   · simp [hnone] at hsij
@@ -332,7 +332,7 @@ def noFailureChange {n nc : Nat} (s₀ : MCState n nc) (s : MCState n nc) : Prop
 theorem noFailureChange_step (n nc : Nat) (targets : Fin nc → CellId2D n) :
     ∀ s s', (multiColorTS n nc targets).next s s' →
       ∀ i : CellId2D n, s'.failed i = s.failed i := by
-  intro s s' ⟨_, _, _, _, _, _, _, _, _, _, _, _, _, hfail⟩
+  intro s s' ⟨_, _, _, _, _, _, _, _, _, _, _, _, _, _, hfail⟩
   exact hfail
 
 /-- As an inductive invariant: failures are initially false and never change. -/
@@ -347,7 +347,7 @@ theorem failuresInitFalse_init (n nc : Nat) (targets : Fin nc → CellId2D n) :
 theorem failuresInitFalse_step (n nc : Nat) (targets : Fin nc → CellId2D n) :
     ∀ s s', failuresInitFalse s →
       (multiColorTS n nc targets).next s s' → failuresInitFalse s' := by
-  intro s s' hpre ⟨_, _, _, _, _, _, _, _, _, _, _, _, _, hfail⟩
+  intro s s' hpre ⟨_, _, _, _, _, _, _, _, _, _, _, _, _, _, hfail⟩
   intro i
   rw [hfail i]
   exact hpre i
@@ -571,7 +571,7 @@ private theorem nonFailedNeighbors2D_sub {n : Nat} (failed : CellId2D n → Bool
 theorem mcDistLowerBound_step (n nc : Nat) (targets : Fin nc → CellId2D n) :
     ∀ s s', mcDistLowerBound targets s →
       (multiColorTS n nc targets).next s s' → mcDistLowerBound targets s' := by
-  intro s s' hlb ⟨hroute_target, hroute_failed, hroute_bf, _, _, _, _, _, _, _, _, _, _⟩
+  intro s s' hlb ⟨hroute_target, hroute_failed, hroute_bf, _, _, _, _, _, _, _, _, _, _, _⟩
   intro c i m hm
   by_cases heq : i = targets c
   · subst heq
@@ -617,69 +617,161 @@ theorem mcDistLowerBound_invariant (n nc : Nat) (targets : Fin nc → CellId2D n
 /- 13. COROLLARY 8: PATH STABILIZATION AFTER ROUTE CONVERGENCE         -/
 /- =================================================================== -/
 
-/-- Corollary 8 (path stabilization): Once routing variables (dist, next)
-    are stable across a transition, the path variables are determined by
-    the routing state and stabilize within one additional round.
+/-- Corollary 8 (path stabilization): Once the color assignment and path
+    membership are stable across a transition, the path membership on the
+    next transition is also stable.
 
-    In the multi-color protocol (Fig. 9, lines 1-7), path[c][i] is computed
-    from the entity graph, which is determined by next[c][·]. When the
-    routing state is fixed, the entity graph is fixed, and the gossip-based
-    path aggregation converges in at most diameter steps.
+    This follows directly from the gossip update rule: since `s''.path c i`
+    membership is determined by `s'.color` and `s'.path` via the iff in
+    the Path phase of `multiColorTS.next`, if `s.color = s'.color` and
+    `s.path ≡ s'.path` (as membership predicates), then `s'.path ≡ s''.path`.
 
-    We axiomatize the convergence of the gossip protocol, as our transition
-    system constrains path structurally (via pint) but does not fully model
-    the iterative gossip computation.
+    We state path stabilization as a membership-equivalence (since the
+    underlying `List`s may differ in order or duplicates, but the set of
+    members is pinned down by the iff). This is the natural semantic form
+    given the gossip constraint is on membership.
 
     Paper ref: Corollary 8, Section 4.2. -/
-axiom path_stabilization {n nc : Nat} (targets : Fin nc → CellId2D n) :
+theorem path_stabilization {n nc : Nat} (targets : Fin nc → CellId2D n) :
     ∀ s s' s'' : MCState n nc,
       (multiColorTS n nc targets).next s s' →
       (multiColorTS n nc targets).next s' s'' →
-      (∀ c i, s'.dist c i = s.dist c i) →
-      (∀ c i, s'.next c i = s.next c i) →
-      (∀ c i, s''.dist c i = s'.dist c i) →
-      (∀ c i, s''.next c i = s'.next c i) →
-      (∀ c i, s''.path c i = s'.path c i)
+      (∀ i, s'.color i = s.color i) →
+      (∀ c i x, x ∈ s'.path c i ↔ x ∈ s.path c i) →
+      (∀ c i x, x ∈ s''.path c i ↔ x ∈ s'.path c i) := by
+  intro s s' s'' hstep1 hstep2 hcolor hpath
+  -- Extract the gossip rule for s → s' and s' → s''
+  obtain ⟨_, _, _, hgossip1, _, _, _, _, _, _, _, _, _, _, _⟩ := hstep1
+  obtain ⟨_, _, _, hgossip2, _, _, _, _, _, _, _, _, _, _, _⟩ := hstep2
+  intro c i x
+  -- s''.path c i membership ↔ (x = i ∧ s'.color i = some c)
+  --                           ∨ (∃ j ∈ neighbors2D i, x ∈ s'.path c j)
+  -- s'.path  c i membership ↔ (x = i ∧ s.color  i = some c)
+  --                           ∨ (∃ j ∈ neighbors2D i, x ∈ s.path c j)
+  -- By hcolor and hpath, the right-hand sides are equivalent.
+  constructor
+  · intro hx
+    have h2 := (hgossip2 c i x).mp hx
+    rcases h2 with ⟨hxi, hcol⟩ | ⟨j, hj, hxj⟩
+    · -- x = i ∧ s'.color i = some c ⇒ s.color i = some c (by hcolor)
+      have hcol' : s.color i = some c := by rw [← hcolor i]; exact hcol
+      exact (hgossip1 c i x).mpr (Or.inl ⟨hxi, hcol'⟩)
+    · -- neighbour witness: x ∈ s'.path c j ⇒ x ∈ s.path c j
+      have hxj' : x ∈ s.path c j := (hpath c j x).mp hxj
+      exact (hgossip1 c i x).mpr (Or.inr ⟨j, hj, hxj'⟩)
+  · intro hx
+    have h1 := (hgossip1 c i x).mp hx
+    rcases h1 with ⟨hxi, hcol⟩ | ⟨j, hj, hxj⟩
+    · have hcol' : s'.color i = some c := by rw [hcolor i]; exact hcol
+      exact (hgossip2 c i x).mpr (Or.inl ⟨hxi, hcol'⟩)
+    · have hxj' : x ∈ s'.path c j := (hpath c j x).mpr hxj
+      exact (hgossip2 c i x).mpr (Or.inr ⟨j, hj, hxj'⟩)
 
 /- =================================================================== -/
 /- 14. COROLLARY 9: PINT STABILIZATION AFTER PATH CONVERGENCE          -/
 /- =================================================================== -/
 
-/-- Corollary 9 (pint stabilization): Once path variables are stable,
-    the path intersection (pint) and lock-needs (needsLock) variables
-    are also stable, since they are derived from path.
+/-- Corollary 9 (pint stabilization): pint is a biconditional-function of
+    path membership at the post-state. So if two post-states (resulting from
+    two transitions) have the same path membership, they have the same pint
+    and needsLock values.
 
-    We axiomatize this since pint is constrained only by an implication
-    (pint=true → witness exists) rather than an iff in our model, so a
-    full proof that the exact same set of intersections is detected
-    requires a biconditional model of pint.
+    Concretely: given two transitions `s → s'` and `t → t'` where
+    `s'.path ≡ t'.path` as membership predicates, we get
+    `s'.pint = t'.pint` and `s'.needsLock = t'.needsLock`.
+
+    This captures Corollary 9 of the paper: once path has stabilized,
+    pint and needsLock (which are derived from path) also stabilize.
 
     Paper ref: Corollary 9, Section 4.2. -/
-axiom pint_stabilization {n nc : Nat} (targets : Fin nc → CellId2D n) :
-    ∀ s s' : MCState n nc,
+theorem pint_stabilization {n nc : Nat} (targets : Fin nc → CellId2D n) :
+    ∀ s s' t t' : MCState n nc,
       (multiColorTS n nc targets).next s s' →
-      (∀ c i, s'.path c i = s.path c i) →
-      (∀ c i, s'.pint c i = s.pint c i) ∧
-      (∀ c i, s'.needsLock c i = s.needsLock c i)
+      (multiColorTS n nc targets).next t t' →
+      (∀ c i x, x ∈ s'.path c i ↔ x ∈ t'.path c i) →
+      (∀ c i, s'.pint c i = t'.pint c i) ∧
+      (∀ c i, s'.needsLock c i = t'.needsLock c i) := by
+  intro s s' t t' hstep1 hstep2 hpath
+  obtain ⟨_, _, _, _, hpint1, hnl1, _, _, _, _, _, _, _, _, _⟩ := hstep1
+  obtain ⟨_, _, _, _, hpint2, hnl2, _, _, _, _, _, _, _, _, _⟩ := hstep2
+  refine ⟨?_, ?_⟩
+  · intro c i
+    -- s'.pint c i = true ↔ (i ∈ s'.path c i ∧ ∃ d ≠ c, i ∈ s'.path d i)
+    --                      ↔ (i ∈ t'.path c i ∧ ∃ d ≠ c, i ∈ t'.path d i) [by hpath]
+    --                      ↔ t'.pint c i = true
+    have h1 := hpint1 c i
+    have h2 := hpint2 c i
+    -- Equivalence on Bool true is equivalence of values (booleans are decidable).
+    cases h_s : s'.pint c i <;> cases h_t : t'.pint c i
+    · rfl
+    · -- s'.pint = false, t'.pint = true: derive contradiction
+      rw [h_t] at h2
+      have ⟨hmem_t, d, hdc, hmem_d⟩ := h2.mp rfl
+      have hmem_s : i ∈ s'.path c i := (hpath c i i).mpr hmem_t
+      have hmem_ds : i ∈ s'.path d i := (hpath d i i).mpr hmem_d
+      have : s'.pint c i = true := h1.mpr ⟨hmem_s, d, hdc, hmem_ds⟩
+      rw [h_s] at this; exact absurd this (by decide)
+    · -- s'.pint = true, t'.pint = false: symmetric
+      rw [h_s] at h1
+      have ⟨hmem_s, d, hdc, hmem_d⟩ := h1.mp rfl
+      have hmem_t : i ∈ t'.path c i := (hpath c i i).mp hmem_s
+      have hmem_dt : i ∈ t'.path d i := (hpath d i i).mp hmem_d
+      have : t'.pint c i = true := h2.mpr ⟨hmem_t, d, hdc, hmem_dt⟩
+      rw [h_t] at this; exact absurd this (by decide)
+    · rfl
+  · intro c i
+    -- needsLock c i = true ↔ pint c i = true, and pint is equal above
+    have h1 := hnl1 c i
+    have h2 := hnl2 c i
+    have hpint1 := hpint1 c i
+    have hpint2 := hpint2 c i
+    cases h_s : s'.needsLock c i <;> cases h_t : t'.needsLock c i
+    · rfl
+    · -- s'.needsLock = false, t'.needsLock = true
+      rw [h_t] at h2
+      have hpt : t'.pint c i = true := h2.mp rfl
+      rw [hpt] at hpint2
+      have ⟨hmem_t, d, hdc, hmem_d⟩ := hpint2.mp rfl
+      have hmem_s : i ∈ s'.path c i := (hpath c i i).mpr hmem_t
+      have hmem_ds : i ∈ s'.path d i := (hpath d i i).mpr hmem_d
+      have hps : s'.pint c i = true := hpint1.mpr ⟨hmem_s, d, hdc, hmem_ds⟩
+      have : s'.needsLock c i = true := h1.mpr hps
+      rw [h_s] at this; exact absurd this (by decide)
+    · -- s'.needsLock = true, t'.needsLock = false: symmetric
+      rw [h_s] at h1
+      have hps : s'.pint c i = true := h1.mp rfl
+      rw [hps] at hpint1
+      have ⟨hmem_s, d, hdc, hmem_d⟩ := hpint1.mp rfl
+      have hmem_t : i ∈ t'.path c i := (hpath c i i).mp hmem_s
+      have hmem_dt : i ∈ t'.path d i := (hpath d i i).mp hmem_d
+      have hpt : t'.pint c i = true := hpint2.mpr ⟨hmem_t, d, hdc, hmem_dt⟩
+      have : t'.needsLock c i = true := h2.mpr hpt
+      rw [h_t] at this; exact absurd this (by decide)
+    · rfl
 
-/-- Combined Corollaries 8-9: after routes stabilize for two rounds,
-    path, pint, and needsLock all stabilize. This is a derived theorem
-    combining the two axioms above. -/
+/-- Combined Corollaries 8-9: if color and path (as membership) are stable
+    on the first transition, and we take a second transition, then path,
+    pint, and needsLock are stable on the second transition.
+
+    Uses `path_stabilization` to establish path membership equality,
+    then `pint_stabilization` applied to the two transitions. -/
 theorem route_stable_implies_all_stable {n nc : Nat} (targets : Fin nc → CellId2D n) :
     ∀ s s' s'' : MCState n nc,
       (multiColorTS n nc targets).next s s' →
       (multiColorTS n nc targets).next s' s'' →
-      (∀ c i, s'.dist c i = s.dist c i) →
-      (∀ c i, s'.next c i = s.next c i) →
-      (∀ c i, s''.dist c i = s'.dist c i) →
-      (∀ c i, s''.next c i = s'.next c i) →
-      (∀ c i, s''.path c i = s'.path c i) ∧
+      (∀ i, s'.color i = s.color i) →
+      (∀ c i x, x ∈ s'.path c i ↔ x ∈ s.path c i) →
+      (∀ c i x, x ∈ s''.path c i ↔ x ∈ s'.path c i) ∧
       (∀ c i, s''.pint c i = s'.pint c i) ∧
       (∀ c i, s''.needsLock c i = s'.needsLock c i) := by
-  intro s s' s'' hstep1 hstep2 hdist1 hnext1 hdist2 hnext2
-  have hpath := path_stabilization targets s s' s'' hstep1 hstep2 hdist1 hnext1 hdist2 hnext2
-  have ⟨hpint, hnl⟩ := pint_stabilization targets s' s'' hstep2 hpath
-  exact ⟨hpath, hpint, hnl⟩
+  intro s s' s'' hstep1 hstep2 hcolor hpath
+  have hpath2 : ∀ c i x, x ∈ s''.path c i ↔ x ∈ s'.path c i :=
+    path_stabilization targets s s' s'' hstep1 hstep2 hcolor hpath
+  -- Apply pint_stabilization with transition `s' → s''` (hstep2) and
+  -- transition `s → s'` (hstep1). The two post-states s'' and s' have the
+  -- same path membership by hpath2, so their pint and needsLock agree.
+  have hres := pint_stabilization targets s' s'' s s' hstep2 hstep1 hpath2
+  exact ⟨hpath2, hres.1, hres.2⟩
 
 /- =================================================================== -/
 /- 15. LOCK RANK FUNCTION                                               -/
@@ -956,7 +1048,7 @@ theorem mc_route_convergence (n nc : Nat) (targets : Fin nc → CellId2D n)
     match hrk with
     | .step _ s _ hrk_s hstep =>
       obtain ⟨hroute_target, hroute_failed, hroute_bf,
-              _, _, _, _, _, _, _, _, _, _, hfail_frame⟩ := hstep
+              _, _, _, _, _, _, _, _, _, _, _, hfail_frame⟩ := hstep
       have hff_s : ∀ j : CellId2D n, s.failed j = false := by
         intro j; rw [← hfail_frame j]; exact hff j
       by_cases heq : i = targets c

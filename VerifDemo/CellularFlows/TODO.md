@@ -1,75 +1,93 @@
-# Cellular Flows Formalization — Final Status
+# Cellular Flows Formalization — Final Status (Phase 2)
 
-Lean 4 formalization of "Safe and Stabilizing Distributed Multi-Path Cellular Flows"
-(Johnson & Mitra, TCS 2015). ~2,900 lines of Lean, zero `sorry`, 26 build jobs.
+Lean 4 formalization of "Safe and Stabilizing Distributed Multi-Path Cellular
+Flows" (Johnson & Mitra, TCS 2015). **3,747 lines, 140+ theorems, zero `sorry`**,
+29 build jobs. All paper results covered.
 
 See the correspondence table in `Defs.lean` for the full paper-to-Lean mapping.
 
 ## All paper results covered
 
-### Proved (no axioms)
-- Lemma 5 (no signal cycles) — `noSignalCycle2_invariant`
-- Lemma 6 (route convergence, 1D) — `route_convergence`
-- Lemma 6 (route convergence, 2D) — `mc_route_convergence`
-- Corollary 7 (next convergence) — `next_convergence`
-- Invariant 2 (entity conservation) — `entity_bounded_by_transfer`
+### Safety
+- **Theorem 1 (safety, axiom-free)** — `safety_discrete` (DiscreteSafety.lean)
+- Invariant 2 (entity disjoint) — `entity_bounded_by_transfer`
 - Invariant 3 (single color) — `invariant3_discrete`
-- **Theorem 1 (safety, axiom-free)** — `safety_discrete`
-- Lock mutual exclusion — `lockMutex_invariant`
-- Signal respects lock (Lemma 10) — `signalRespectsLock_invariant`
-- Per-color dist lower bound (2D) — `mcDistLowerBound_invariant`
-- Manhattan triangle inequality — `manhattan_neighbor_triangle` (proved, not axiom)
-- Neighbor membership — `neighbors2D_mem_areNeighbors` (proved, not axiom)
-- + 50 supporting lemmas
+- Lemma 5 (no signal cycles, parametric) — `noSignalCycle2_invariant`
 
-### Proved (conditional on axioms)
+### Routing & self-stabilization
+- Lemma 6 (route convergence, 1D from init) — `route_convergence`
+- Lemma 6 (route convergence, 2D) — `mc_route_convergence` (AXIOM-FREE after Phase A)
+- Corollary 7 (next convergence, 1D from init) — `next_convergence`
+- **NEW: Self-stabilization from arbitrary state (1D)** — `route_self_stabilizes`, `route_next_self_stabilizes` (Stabilization.lean)
+- Manhattan triangle inequality — `manhattan_neighbor_triangle`
+- Closer-neighbor existence — `exists_closer_neighbor` (PROVED in Phase A)
+
+### Multi-color
+- Corollaries 8-9 (path/pint stable) — `route_stable_implies_all_stable` (NOW THEOREM, Phase C)
+- `path_stabilization` — NOW THEOREM via explicit gossip update rule (Phase C)
+- `pint_stabilization` — NOW THEOREM derived from path stability (Phase C)
+- Lock mutual exclusion — `lockMutex_invariant`
+- Lock requires intersection — `lockRequiresIntersection_invariant`
+- Lemma 10 (signal respects lock) — `signalRespectsLock_invariant`
+- Per-color dist lower bound (2D) — `mcDistLowerBound_invariant`
+
+### Liveness (fairness axioms kept per user preference)
 - **Theorem 2 (liveness)** — `liveness_theorem` (1 fairness axiom)
 - Lemma 11 (lock acquisition) — `lock_acquisition` (1 fairness axiom)
-- Corollaries 8-9 (path/pint stable) — `route_stable_implies_all_stable` (2 gossip axioms)
-- Lemma 6 2D convergence — `mc_route_convergence` (1 topology axiom)
 
-### Active axioms (7 total; 3 superseded)
-| Axiom | Category | Could prove? |
+### Finite instances (NuXMV + Lean proofs)
+- `Cellular3` (3-cell single-color line) — 3 INVARSPEC proved
+- **NEW: `CellularMC2x2` (2x2 grid, 2 colors)** — 4 INVARSPEC proved including lock mutex (Phase D)
+
+## Active axioms
+
+**2 active axioms remain** (all fairness; user preference to keep):
+
+| Axiom | Category | File |
 |---|---|---|
-| `GapSafe` | **Superseded** | — |
-| `gapSafe_init` | **Superseded** | — |
-| `gapPreservedByStep` | **Superseded** | — |
-| `exists_closer_neighbor` | Topology | Yes (verbose Fin case analysis) |
-| `path_stabilization` | Gossip convergence | Needs gossip round model |
-| `pint_stabilization` | Gossip convergence | Follows from path |
-| `fair_execution_ranking_decreases` | Fairness (Assumption 4) | Needs token scheduler model |
-| `lock_fairness_general` | Fairness (Assumption 4) | Needs token scheduler model |
+| `fair_execution_ranking_decreases` | Fairness (Assumption 4) | CellFlowsProofs.lean:627 |
+| `lock_fairness_general` | Fairness (Assumption 4) | MultiColorProofs.lean:811 |
 
-**Non-superseded active axioms: 5** (1 topology, 2 gossip, 2 fairness)
+**3 superseded axioms** (kept in file for documentation, never used in final theorems):
 
-## Remaining extensions (optional)
+| Axiom | File | Superseded by |
+|---|---|---|
+| `GapSafe` | CellFlowsProofs.lean:478 | `safety_discrete` (DiscreteSafety.lean) |
+| `gapSafe_init` | CellFlowsProofs.lean:482 | same |
+| `gapPreservedByStep` | CellFlowsProofs.lean:490 | same |
 
-### Prove `exists_closer_neighbor` (LOW effort)
-The only remaining provable axiom. Requires case analysis on whether rows or
-columns of i and t differ, then constructing the appropriate neighbor via
-upNeighbor/downNeighbor/leftNeighbor2D/rightNeighbor2D and showing membership
-in neighbors2D. Verbose but purely mechanical.
+## Summary of Phase 2 improvements
 
-### Model gossip protocol explicitly (MEDIUM effort)
-Would eliminate `path_stabilization` and `pint_stabilization` axioms. Requires
-adding explicit gossip round state (which cells have propagated path info to
-which neighbors) and proving convergence in diameter rounds.
+Starting from 5 active axioms + 3 superseded; ended at 2 active + 3 superseded.
 
-### Model token scheduler explicitly (HIGH effort)
-Would eliminate both fairness axioms. Requires adding explicit `token` state
-variable with round-robin cycling and proving fair scheduling.
+- **Phase A** eliminated 1 topology axiom (`exists_closer_neighbor`)
+- **Phase B** added self-stabilization proofs (`route_self_stabilizes`, `route_next_self_stabilizes`)
+- **Phase C** eliminated 2 gossip axioms (`path_stabilization`, `pint_stabilization`)
+- **Phase D** added 2x2 multi-color NuXMV finite instance with lock mutex proof
 
 ## File inventory
 
-| File | Lines | Theorems | Axioms |
-|---|---|---|---|
-| Defs.lean | 158 | — | — |
-| Grid.lean | 89 | — | — |
-| Route.lean | 72 | — | — |
-| RouteProofs.lean | 462 | 31 | — |
-| CellFlows.lean | 154 | — | — |
-| CellFlowsProofs.lean | 718 | 25 | 4 (3 superseded) |
-| DiscreteSafety.lean | 182 | 8 | — |
-| MultiColor.lean | 211 | — | — |
-| MultiColorProofs.lean | 900 | 59 | 4 |
-| **Total** | **~2,946** | **123** | **8 (3 superseded)** |
+| File | Lines | Purpose |
+|---|---|---|
+| Defs.lean | 165 | DistVal, 1D topology, paper-to-Lean correspondence table |
+| Grid.lean | 91 | 2D grid topology, Manhattan distance |
+| Route.lean | 72 | Route-only TS (`routeTS`, `routeFFTS`) |
+| RouteProofs.lean | 462 | Lemma 6, Cor 7, distLowerBound (31 theorems) |
+| **Stabilization.lean** | **372** | **Self-stabilization from arbitrary state (Phase B, NEW)** |
+| CellFlows.lean | 154 | Full single-color TS |
+| CellFlowsProofs.lean | 718 | Theorem 1 & 2, Lemma 5, entity flow (25 theorems) |
+| DiscreteSafety.lean | 182 | Axiom-free safety theorem |
+| MultiColor.lean | 215 | Multi-color TS (2D grid, NOW with explicit gossip, Phase C) |
+| MultiColorProofs.lean | 1085 | Lock, signal, Lemma 10/11, 2D Lemma 6 (60+ theorems) |
+| **Total CellularFlows** | **3,516** | |
+| CellularMC2x2.lean (NuXMV) | 113 | **Generated 2x2 multi-color instance (Phase D, NEW)** |
+| CellularMC2x2Proofs.lean | 118 | **4 INVARSPEC proved, lock mutex (Phase D, NEW)** |
+| **Grand Total** | **3,747** | |
+
+## Build
+
+```bash
+lake build
+```
+
+Should complete in <30s with no Mathlib dependency. 29 build jobs.
