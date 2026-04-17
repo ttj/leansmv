@@ -4,9 +4,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-`VerifDemo` is a Lean 4 verification demo (Lean toolchain `leanprover/lean4:v4.29.1`, built with Lake) covering discrete math, transition systems, NuXMV-style model checking, program verification (IMP + Hoare logic), and a full formalization of the distributed cellular flows protocol from Johnson & Mitra (TCS 2015). It pairs with a Python translator that converts NuXMV `.smv` models into Lean files targeting the in-repo `TransitionSystem` framework. No Mathlib dependency — pure Lean 4 core.
+`VerifDemo` is a Lean 4 verification demo (Lean toolchain `leanprover/lean4:v4.29.0`, built with Lake) covering discrete math, transition systems, NuXMV-style model checking, program verification (IMP + Hoare logic), and a full formalization of the distributed cellular flows protocol from Johnson & Mitra (TCS 2015). It pairs with a Python translator that converts NuXMV `.smv` models into Lean files targeting the in-repo `TransitionSystem` framework. Most modules are pure Lean 4 core; `VerifDemo/CellularFlows/EuclideanModel.lean` uses Mathlib (v4.29.0) for Euclidean ℝ² positions — run `lake exe cache get` before first build.
 
 ## Common commands
+
+First-time setup (pulls Mathlib cache — saves ~30min of initial compile):
+```bash
+lake update        # pulls Mathlib (~5-10 min with cache download)
+lake exe cache get # pulls precompiled Mathlib .olean files
+```
 
 Build everything (proofs are checked at build time):
 ```bash
@@ -89,5 +95,5 @@ When adding a new `.smv` model, generate the Lean file, then create a sibling `*
 
 - `autoImplicit = false` — always declare type parameters explicitly (`{n : Nat}`, `(n : Nat)`)
 - Don't derive `DecidableEq` or `Repr` on structures with function fields (like `RouteState`, `CellFlowState`)
-- No Mathlib — all proofs use Lean 4 core tactics (`simp`, `omega`, `cases`, `induction`, `by_cases`, etc.)
+- Mathlib is available but used ONLY in `EuclideanModel.lean` (for real Euclidean ℝ²). All other modules use Lean 4 core tactics (`simp`, `omega`, `cases`, `induction`, `by_cases`, etc.) and do not depend on Mathlib — keep it this way to preserve fast builds. `ContinuousModel.lean` provides a Mathlib-free alternative using an abstract `MetricPoint` typeclass with Nat distance.
 - Generated NuXMV `.lean` files have `sorry` stubs — this is expected; real proofs go in `*Proofs.lean`

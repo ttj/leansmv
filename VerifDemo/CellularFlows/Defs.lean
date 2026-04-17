@@ -88,20 +88,31 @@
     Geometric bridge (axiom)    continuous_safety_bridge           ContinuousModel
     Grid/Manhattan instance     GridPos (Mathlib-free example)     ContinuousModel
 
+  EUCLIDEAN MODEL (Mathlib ℝ², Section 2.3 exact form)
+    Pos2D = EuclideanSpace ℝ (Fin 2)  paper's R²                  EuclideanModel
+    ContinuousEntityReal         entity with real-valued pos       EuclideanModel
+    ContinuousMCStateReal        state with positions : list       EuclideanModel
+    ContinuousSafeReal           dist p q ≥ d in ℝ                EuclideanModel
+    ★ Theorem 1 (Euclidean)      continuous_theorem_1_real         EuclideanModel
+                                 continuous_theorem_1_real_reachable EuclideanModel
+    Geometric bridge (axiom)     continuous_safety_bridge_real     EuclideanModel
+    Sanity lemmas                pos2D_dist_self/symm/nonneg       EuclideanModel
+
   FINITE INSTANCES (NuXMV)
     3-cell single-color line    Cellular3TS_inv1/2/3_proved        Cellular3Proofs
     2x2 grid with 2 colors      Cellular_mc_2x2TS_inv1..4_proved   CellularMC2x2Proofs
                                 (lock mutex, dist targets, bounds)
 
-  AXIOMS (8 total, 3 superseded; 5 active — 2 fairness + 2 docs + 1 geometric bridge)
+  AXIOMS (9 total, 3 superseded; 6 active — 2 fairness + 2 docs + 2 geometric bridges)
     ━━━ Active — fairness (2) ━━━
     fair_execution_ranking_decreases  (Assumptions 3-4, Lemma 12)  CellFlowsProofs
     lock_fairness_general             (Assumption 4, Lemma 11)     MultiColorProofs
     ━━━ Active — paper documentation (2, not proof-load-bearing) ━━━
     assumption1_projection_property   (Assumption 1, Section 2.5)  Assumptions
     assumption2_transfer_feasibility  (Assumption 2, Section 2.5)  Assumptions
-    ━━━ Active — geometric bridge (1) ━━━
-    continuous_safety_bridge          (Theorem 1 discrete→continuous) ContinuousModel
+    ━━━ Active — geometric bridges (2, one per continuous model) ━━━
+    continuous_safety_bridge          (Nat model, Theorem 1 bridge) ContinuousModel
+    continuous_safety_bridge_real     (ℝ² Mathlib, Theorem 1 bridge) EuclideanModel
     ━━━ Superseded (3) — kept for documentation ━━━
     GapSafe, gapSafe_init, gapPreservedByStep  (by safety_discrete) CellFlowsProofs
 
