@@ -15,6 +15,10 @@ import VerifDemo.CellularFlows.Route
 import VerifDemo.CellularFlows.RouteProofs
 import VerifDemo.CellularFlows.CellFlows
 import VerifDemo.CellularFlows.CellFlowsProofs
+import VerifDemo.CellularFlows.Grid
+import VerifDemo.CellularFlows.MultiColor
+import VerifDemo.CellularFlows.MultiColorProofs
+import VerifDemo.CellularFlows.DiscreteSafety
 import VerifDemo.ProgramVerif.Imp
 import VerifDemo.ProgramVerif.Examples
 import VerifDemo.ProgramVerif.Sort
