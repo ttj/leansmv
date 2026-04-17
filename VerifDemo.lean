@@ -18,8 +18,11 @@ import VerifDemo.CellularFlows.RouteProofs
 import VerifDemo.CellularFlows.CellFlows
 import VerifDemo.CellularFlows.CellFlowsProofs
 import VerifDemo.CellularFlows.Grid
+import VerifDemo.CellularFlows.Parameters
+import VerifDemo.CellularFlows.Assumptions
 import VerifDemo.CellularFlows.MultiColor
 import VerifDemo.CellularFlows.MultiColorProofs
+import VerifDemo.CellularFlows.PaperNotation
 import VerifDemo.CellularFlows.DiscreteSafety
 import VerifDemo.CellularFlows.Stabilization
 import VerifDemo.CellularFlows.Stabilization2D

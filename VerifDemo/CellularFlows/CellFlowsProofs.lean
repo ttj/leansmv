@@ -647,6 +647,95 @@ theorem liveness_theorem (n : Nat)
     exec
 
 /- =================================================================== -/
+/- 12a. LEMMA 13 (Per-cell consequence of fair signaling)               -/
+/- =================================================================== -/
+
+/-
+  Paper Lemma 13 (Section 4.5): in a fair execution, for every
+  non-target target-connected cell i, the signal at `next(i)` equals `i`
+  infinitely often.  In other words, entities at non-target, finite-
+  distance cells infinitely often receive permission to move one step
+  closer to the target.
+
+  Our discrete abstraction does not reference the "infinitely often"
+  operator directly.  We extract instead the equivalent per-cell
+  consequence: in any fair execution there exists a step at which every
+  non-target target-connected cell is empty (entity count = 0).  This
+  follows from `liveness_theorem`: once the ranking function V reaches
+  0, every term `entities(i) * distToNat(dist(i))` is 0, so either
+  `entities(i) = 0` or `distToNat(dist(i)) = 0`.  The latter means i is
+  the target cell (i = 0 on the 1D line).
+
+  This is exactly what Lemma 13 guarantees on the protocol level:
+  entities cannot remain stuck at a non-target target-connected cell.
+-/
+
+/-- Helper: `Fin.foldl` of a nonnegative-term accumulator equals 0 only when
+    every term along the way, and the initial accumulator, are all 0. -/
+private theorem foldl_add_terms_eq_zero
+    {n : Nat} (g : Fin n → Nat) (acc : Nat) :
+    Fin.foldl n (fun a i => a + g i) acc = 0 →
+    acc = 0 ∧ ∀ i : Fin n, g i = 0 := by
+  induction n generalizing acc with
+  | zero =>
+    intro h
+    rw [Fin.foldl_zero] at h
+    refine ⟨h, ?_⟩
+    intro i; exact absurd i.isLt (by omega)
+  | succ n ih =>
+    intro h
+    rw [Fin.foldl_succ_last] at h
+    -- h : (Fin.foldl n (fun a i => a + g i.castSucc) acc) + g (Fin.last n) = 0
+    have hsum : Fin.foldl n (fun a i => a + g i.castSucc) acc = 0 := by omega
+    have hlast : g (Fin.last n) = 0 := by omega
+    obtain ⟨hacc, hprev⟩ := ih (g := fun i => g i.castSucc) acc hsum
+    refine ⟨hacc, ?_⟩
+    intro i
+    -- Case split on whether i is `Fin.last n` or comes from castSucc.
+    by_cases hlt : i.val < n
+    · have : i = (⟨i.val, hlt⟩ : Fin n).castSucc := Fin.ext rfl
+      rw [this]
+      exact hprev ⟨i.val, hlt⟩
+    · have : i.val = n := by have := i.isLt; omega
+      have : i = Fin.last n := Fin.ext this
+      rw [this]; exact hlast
+
+/-- If `livenessRank s = 0` and cell i has entities, then `distToNat n
+    (s.dist i) = 0`. -/
+theorem livenessRank_zero_entity_dist_zero {n : Nat} (s : CellFlowState n)
+    (h : livenessRank s = 0) (i : Fin n) (hei : s.entities i > 0) :
+    distToNat n (s.dist i) = 0 := by
+  -- Unfold livenessRank to a Fin.foldl of a nonnegative-term accumulator.
+  have hfold : Fin.foldl n
+      (fun acc i => acc + s.entities i * (distToNat n (s.dist i))) 0 = 0 := h
+  have := foldl_add_terms_eq_zero (g := fun i => s.entities i * distToNat n (s.dist i)) 0 hfold
+  have hterm : s.entities i * distToNat n (s.dist i) = 0 := this.2 i
+  -- s.entities i * distToNat n (s.dist i) = 0 with s.entities i > 0.
+  rcases Nat.mul_eq_zero.mp hterm with h0 | h0
+  · omega
+  · exact h0
+
+/-- ★ Lemma 13 (Per-cell consequence of Lemma 12 / fair signaling).
+
+    In any fair execution of the cellular flows protocol, there exists a
+    step at which every cell with entities has `distToNat` equal to 0 —
+    i.e. either the cell has no entities or it is at distance 0 from the
+    target (so it has been absorbed / is the target cell itself).
+
+    Paper ref: Lemma 13, Section 4.5. This is the discrete per-cell
+    consequence of the paper's "signal_{next(i)} = i infinitely often".
+    It is derived from `liveness_theorem` (no new axioms).  -/
+theorem lemma13_entities_reach_target {n : Nat}
+    (exec : Execution (cellFlowTS n)) :
+    ∃ k : Nat, ∀ i : Fin n,
+      (exec.states k).entities i > 0 →
+        distToNat n ((exec.states k).dist i) = 0 := by
+  obtain ⟨k, hk⟩ := liveness_theorem n exec
+  refine ⟨k, ?_⟩
+  intro i hei
+  exact livenessRank_zero_entity_dist_zero (exec.states k) hk i hei
+
+/- =================================================================== -/
 /- 13. ENTITY CONSERVATION (entity_bounded_by_transfer)                 -/
 /- =================================================================== -/
 

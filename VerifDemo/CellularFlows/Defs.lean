@@ -62,17 +62,34 @@
   LIVENESS (Section 4.5)
     Lemma 12 (fair signaling)   fair_execution_ranking_decreases  CellFlowsProofs
                                 (axiom — fairness assumption)
+    Lemma 13 (signal often)     lemma13_entities_reach_target     CellFlowsProofs
+                                (derived from liveness_theorem, no new axiom)
     ★ Theorem 2 (Liveness)      liveness_theorem                  CellFlowsProofs
+
+  PAPER NOTATION (Sections 3.2-4.4, Figures 7-11)
+    NEPrev(x, i, c)             NEPrev                             PaperNotation
+    SC(x, c)                    sharedColors                       PaperNotation
+    lcs(x, c, i)                lcsSet                             PaperNotation
+    V_E(x, c) / E_E(x, c)       entityGraphVertices / …Edges      PaperNotation
+    V_R(x, c) / E_R(x, c)       routingGraphVertices / …Edges     PaperNotation
+    entityGraphVertexB          boolean form of entityGraphVertex PaperNotation
+    targetConnectedB            boolean form of targetConnected   PaperNotation
+    Numerical params (l,r_s,v)  CellFlowsParameters                Parameters
+    Assumption 1 (projection)   assumption1_projection_property   Assumptions
+    Assumption 2 (transfer)     assumption2_transfer_feasibility  Assumptions
 
   FINITE INSTANCES (NuXMV)
     3-cell single-color line    Cellular3TS_inv1/2/3_proved        Cellular3Proofs
     2x2 grid with 2 colors      Cellular_mc_2x2TS_inv1..4_proved   CellularMC2x2Proofs
                                 (lock mutex, dist targets, bounds)
 
-  AXIOMS (5 total, 3 superseded; only 2 active, both fairness)
-    ━━━ Active (2) ━━━
+  AXIOMS (7 total, 3 superseded; 4 active — 2 fairness + 2 documentation)
+    ━━━ Active — fairness (2) ━━━
     fair_execution_ranking_decreases  (Assumptions 3-4, Lemma 12)  CellFlowsProofs
     lock_fairness_general             (Assumption 4, Lemma 11)     MultiColorProofs
+    ━━━ Active — paper documentation (2, not proof-load-bearing) ━━━
+    assumption1_projection_property   (Assumption 1, Section 2.5)  Assumptions
+    assumption2_transfer_feasibility  (Assumption 2, Section 2.5)  Assumptions
     ━━━ Superseded (3) — kept for documentation ━━━
     GapSafe, gapSafe_init, gapPreservedByStep  (by safety_discrete) CellFlowsProofs
 

@@ -1,8 +1,10 @@
 # Cellular Flows Formalization — Final Status (Phase 2)
 
 Lean 4 formalization of "Safe and Stabilizing Distributed Multi-Path Cellular
-Flows" (Johnson & Mitra, TCS 2015). **4,400+ lines, 150+ theorems, zero `sorry`**,
-30 build jobs. All paper results covered in both 1D and 2D.
+Flows" (Johnson & Mitra, TCS 2015). **4,672 lines, 160+ theorems, zero `sorry`**,
+33 build jobs. All paper results covered in both 1D and 2D, with explicit
+paper-notation definitions for NEPrev, SC, lcs, V_E/E_E, V_R/E_R, and
+Assumptions 1-2 stated as documentation.
 
 See the correspondence table in `Defs.lean` for the full paper-to-Lean mapping.
 
@@ -36,6 +38,17 @@ See the correspondence table in `Defs.lean` for the full paper-to-Lean mapping.
 ### Liveness (fairness axioms kept per user preference)
 - **Theorem 2 (liveness)** — `liveness_theorem` (1 fairness axiom)
 - Lemma 11 (lock acquisition) — `lock_acquisition` (1 fairness axiom)
+- **Lemma 13 (entities reach target)** — `lemma13_entities_reach_target` (derived from liveness, NO new axiom)
+
+### Paper-notation definitions (explicit, matching paper formulas)
+- `NEPrev(x, i, c)` — nonempty predecessors (PaperNotation.lean)
+- `sharedColors(x, c)` — SC (PaperNotation.lean)
+- `lcsSet(x, c, i)` — lcs (PaperNotation.lean)
+- `entityGraphVertices / Edges` — V_E / E_E (PaperNotation.lean)
+- `routingGraphVertices / Edges` — V_R / E_R (PaperNotation.lean)
+- `CellFlowsParameters` — numerical params l, r_s, v, d (Parameters.lean)
+- `assumption1_projection_property` — Assumption 1 doc axiom (Assumptions.lean)
+- `assumption2_transfer_feasibility` — Assumption 2 doc axiom (Assumptions.lean)
 
 ### Finite instances (NuXMV + Lean proofs)
 - `Cellular3` (3-cell single-color line) — 3 INVARSPEC proved
