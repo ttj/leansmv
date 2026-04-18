@@ -43,7 +43,7 @@ The Lean side is one Lake library (`VerifDemo`) layered as:
 
 3. **Parametric models** — [VerifDemo/Parametric/NMutex.lean](VerifDemo/Parametric/NMutex.lean) generalizes the 2-process mutex to N processes and proves mutual exclusion for all N. Uses `Fin n → ProcState` with frame conditions — this is the pattern for parametric proofs.
 
-4. **Cellular Flows** — [VerifDemo/CellularFlows/](VerifDemo/CellularFlows/) formalizes the distributed cellular flows protocol from "Safe and Stabilizing Distributed Multi-Path Cellular Flows" (Johnson & Mitra, TCS 2015). ~6,000 lines, 170+ theorems, zero `sorry`. **Read [Defs.lean](VerifDemo/CellularFlows/Defs.lean) header first** — it contains the authoritative paper-to-Lean correspondence table mapping every Invariant / Lemma / Corollary / Theorem to its Lean theorem and file. Organizational groups:
+4. **Cellular Flows** — [VerifDemo/CellularFlows/](VerifDemo/CellularFlows/) formalizes the distributed cellular flows protocol from "Safe and Stabilizing Distributed Multi-Path Cellular Flows" (Johnson & Mitra, TCS 2015). ~6,000 lines, 200+ theorems, zero `sorry`. **Read [Defs.lean](VerifDemo/CellularFlows/Defs.lean) header first** — it contains the authoritative paper-to-Lean correspondence table mapping every Invariant / Lemma / Corollary / Theorem to its Lean theorem and file. Organizational groups:
    - *Core topology & state*: `Defs.lean` (1D line, `DistVal`), `Grid.lean` (2D grid, `CellId2D`, `manhattan`), `Topology.lean` (abstract `CellTopology` typeclass for arbitrary tessellations), `Complete.lean` (K_n instance)
    - *Single-color protocol*: `Route.lean` / `RouteProofs.lean` (Lemma 6, Cor 7, 1D), `CellFlows.lean` / `CellFlowsProofs.lean` (Theorem 1 safety, Theorem 2 liveness, Lemma 5), `DiscreteSafety.lean` (axiom-free safety, supersedes GapSafe), `Stabilization.lean` (1D self-stabilization from arbitrary state)
    - *Multi-color protocol*: `MultiColor.lean` / `MultiColorProofs.lean` (Lemma 10-11, Cor 8-9 with explicit gossip update, 2D Lemma 6 / Cor 7, lock acquisition), `Stabilization2D.lean` (2D self-stabilization)
@@ -82,6 +82,20 @@ Root module [VerifDemo.lean](VerifDemo.lean) imports everything; `lakefile.toml`
 - Define `ReachableFromInK ts s₀ k s` (inductive, k steps from an arbitrary starting state — not required to satisfy `ts.init`)
 - Step-indexed lower bounds (e.g. `kStepLowerBound`) generalize pre-existing invariant bounds to states reachable from arbitrary garbage
 - Used to express the paper's "within 2Δ rounds of the last fail" stabilization claims
+
+## Axiomatization patterns (soundness-critical)
+
+Post-audit, all environment/fairness/geometry axioms in CellularFlows are **scoped** to prevent contradictions. When adding new axioms or theorems that depend on them, follow these patterns:
+
+**Fairness axioms** (`fair_execution_ranking_decreases`, `lock_fairness_general`) require an explicit fairness hypothesis `IsFairExecution exec` / `IsLockFair exec`. The transition system admits stutter executions (signal=none everywhere, no entities move), so an unconditional "ranking decreases" axiom is inconsistent with the TS. Every downstream liveness theorem (e.g. `liveness_theorem`, `lemma13_entities_reach_target`, `lock_acquisition`) threads the fairness hypothesis through. **Never add an axiom that claims strict decrease on all executions.**
+
+**Continuous bridge axioms** (`continuous_safety_bridge`, `continuous_safety_bridge_real`) require `ContinuousReachable targets s` (= `Reachable multiColorTS s.discrete ∧ ValidContinuousPlacement targets s`). `ValidContinuousPlacement` is an opaque `Prop` axiom with no inhabitants derivable without explicit hypothesis — this blocks adversarial position assignments that would break safety. A previous unconditional form was unsound.
+
+**Documented paper axioms** (`assumption1_projection_property`, `assumption2_transfer_feasibility`) target opaque Props (`ProjectionProperty`, `TransferFeasibility`) with no content, used purely for paper-traceability.
+
+**MCDiscreteSafe** bundles 5 discrete invariants (`lockMutex`, `signalRespectsLock`, `colorConsistent`, `mcSignalValid`, `lockRequiresIntersection`), each separately proved. This is the discrete precondition for the continuous bridge; keep new invariants in sync if extending the bridge.
+
+**Audit discipline** when adding axioms: (a) scope to reachability or an explicit predicate, (b) prefer opaque `Prop` witnesses over content-valued axioms, (c) verify the axiom is not satisfiable in every state (test with stutter execution / adversarial state construction). The `Defs.lean` header maintains an inventory of every axiom and its classification — update it when adding/removing.
 
 ## SMV → Lean translator
 
